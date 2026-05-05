@@ -54,6 +54,8 @@ class AttackOrchestrator:
                 # Stamp each result with campaign name
                 for result in attack_results:
                     result.campaign_name = self.campaign_name
+                    result.target_model = getattr(self.target, "model", "")
+                    result.target_architecture_type = getattr(self.target, "architecture_type", "")
 
                 # Save attack results
                 self.results.extend(attack_results)

@@ -1,12 +1,12 @@
 """
-RedTrace — Red Teaming Framework CLI
-=====================================
+RedTeaming Framework
+====================
 
 Usage::
 
     python main.py <campaign.yaml>
-    python main.py campaigns/smoke_test.yaml --log-level DEBUG
-    python main.py campaigns/smoke_test.yaml --skip-checks
+    python main.py examples/campaigns/use_cases/use_case1/smoke_test.yaml --log-level DEBUG
+    python main.py examples/campaigns/use_cases/use_case1/smoke_test.yaml --skip-checks
 """
 
 import argparse
@@ -17,12 +17,18 @@ import subprocess
 import sys
 from pathlib import Path
 
+# ── Add src/ to import path ───────────────────────────────────
+_PROJECT_ROOT = Path(__file__).resolve().parent
+_SRC_DIR = _PROJECT_ROOT / "src"
+if str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
+
 from core.application.campaign_loader import load_campaign
 from core.application.health_check import run_preflight_checks
 from core.models.attack_target import AttackTarget
 from core.orchestration.attack_orchestrator import AttackOrchestrator
 
-DASHBOARD_PATH = Path(__file__).resolve().parent / "core" / "results" / "report_viewer.py"
+DASHBOARD_PATH = _SRC_DIR / "core" / "results" / "report_viewer.py"
 
 
 def _configure_logging(level: str) -> None:
@@ -61,7 +67,7 @@ class _ScorerRetryFilter(logging.Filter):
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        prog="redtrace",
+        prog="RedTeaming Framework",
         description="Run a red teaming campaign from a YAML configuration file.",
     )
     parser.add_argument(
@@ -91,7 +97,7 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv)
     _configure_logging(args.log_level)
 
-    logger = logging.getLogger("redtrace")
+    logger = logging.getLogger("RedTeaming Framework")
 
     # ── Load campaign ──────────────────────────────────────────
     try:
@@ -103,6 +109,10 @@ def main(argv: list[str] | None = None) -> int:
     logger.info("─" * 60)
     logger.info("[Config] Campaign  : %s", config.campaign_name or args.campaign)
     logger.info("[Config] Target    : %s → %s", config.target_name, config.target_chat_url)
+    if config.target_model:
+        logger.info("[Config] Target model : %s", config.target_model)
+    if config.target_architecture_type:
+        logger.info("[Config] Target architecture : %s", config.target_architecture_type)
     if config.target_reset_memory_url:
         logger.info("[Config] Target reset URL : %s", config.target_reset_memory_url)
     else:
@@ -136,6 +146,8 @@ def main(argv: list[str] | None = None) -> int:
         config.target_reset_memory_url or None,
         config.target_input_field,
         config.target_output_field,
+        config.target_model,
+        config.target_architecture_type,
     )
     orchestrator = AttackOrchestrator(
         target=target,
@@ -170,7 +182,7 @@ def main(argv: list[str] | None = None) -> int:
 def _launch_dashboard(logger: logging.Logger) -> None:
     """Launch the Streamlit dashboard in a subprocess."""
     logger.info("─" * 50)
-    logger.info("[Dashboard] Lancement du dashboard RedTrace...")
+    logger.info("[Dashboard] Lancement du dashboard RedTeaming Framework...")
     logger.info("[Dashboard] Local   : http://localhost:8501")
     logger.info("─" * 50)
     try:

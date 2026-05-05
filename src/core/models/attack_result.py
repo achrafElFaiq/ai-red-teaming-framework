@@ -52,6 +52,8 @@ class AttackResult(BaseModel):
     attack_name: str
     target_url: str
     campaign_name: str = ""
+    target_model: str = ""
+    target_architecture_type: str = ""
     timestamp: datetime = datetime.now()
 
     # garak — flat list of independent prompts

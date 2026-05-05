@@ -4,11 +4,8 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
-from config import build_pyrit_attacker_config, get_runtime_settings, resolve_pyrit_attacker_config
+import settings as settings_module
+from settings import build_pyrit_attacker_config, get_runtime_settings
 
 
 # Minimal env vars always required
@@ -31,7 +28,7 @@ _PYRIT_ENV = {
 # Garak-specific env vars
 _GARAK_ENV = {
     "GARAK_REPORTS_DIR": "/tmp/garak",
-    "GARAK_CONFIG_PATH": "configs/garak_config.json",
+    "GARAK_CONFIG_PATH": "config/garak_config.json",
 }
 
 # All env vars combined
@@ -39,6 +36,15 @@ _FULL_ENV = {**_BASE_ENV, **_PYRIT_ENV, **_GARAK_ENV}
 
 
 class RuntimeSettingsTests(unittest.TestCase):
+    def setUp(self):
+        settings_module._env_loaded = False
+        self.load_dotenv_patcher = patch("settings.load_dotenv", return_value=False)
+        self.load_dotenv_patcher.start()
+
+    def tearDown(self):
+        self.load_dotenv_patcher.stop()
+        settings_module._env_loaded = False
+
     def test_runtime_settings_raise_when_env_vars_are_missing(self):
         """Calling get_runtime_settings() with no env and no framework filter should crash."""
         with patch.dict(os.environ, {}, clear=True):
@@ -127,36 +133,6 @@ class RuntimeSettingsTests(unittest.TestCase):
                 "attacker_endpoint": "https://llm.example.test/v1",
                 "attacker_model": "gpt-test",
                 "attacker_api_key": "secret",
-            },
-        )
-
-    def test_resolve_pyrit_attacker_config_uses_env_values(self):
-        with patch.dict(os.environ, _FULL_ENV, clear=True):
-            attacker_config = resolve_pyrit_attacker_config()
-        self.assertEqual(
-            attacker_config,
-            {
-                "attacker_endpoint": "http://127.0.0.1:11434/v1",
-                "attacker_model": "gemma4:e4b",
-                "attacker_api_key": "ollama",
-            },
-        )
-
-    def test_resolve_pyrit_attacker_config_accepts_overrides(self):
-        with patch.dict(os.environ, _FULL_ENV, clear=True):
-            attacker_config = resolve_pyrit_attacker_config(
-                {
-                    "attacker_endpoint": "https://override.example.test/v1",
-                    "attacker_model": "override-model",
-                    "attacker_api_key": "override-key",
-                }
-            )
-        self.assertEqual(
-            attacker_config,
-            {
-                "attacker_endpoint": "https://override.example.test/v1",
-                "attacker_model": "override-model",
-                "attacker_api_key": "override-key",
             },
         )
 

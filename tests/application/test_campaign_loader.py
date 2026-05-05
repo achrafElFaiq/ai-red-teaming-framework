@@ -329,6 +329,8 @@ def test_target_chat_url_and_optional_reset_memory_url(tmp_yaml, tmp_path):
     campaign = tmp_yaml("""
         target:
           name: Bot
+          model: llama3.1
+          architecture_type: RAG-connected bot
           chat_url: http://localhost:8000/api/chat
           reset_memory_url: http://localhost:8000/api/reset
         attacks:
@@ -337,6 +339,26 @@ def test_target_chat_url_and_optional_reset_memory_url(tmp_yaml, tmp_path):
     config = load_campaign(campaign)
     assert config.target_chat_url == "http://localhost:8000/api/chat"
     assert config.target_reset_memory_url == "http://localhost:8000/api/reset"
+    assert config.target_model == "llama3.1"
+    assert config.target_architecture_type == "RAG-connected bot"
+
+
+def test_target_model_and_architecture_type_default_to_empty_strings(tmp_yaml, tmp_path):
+    _write_attack(tmp_path, "attacks", "g.yaml", """
+        framework: garak
+        intent: probe
+        probe: test.Blank
+    """)
+    campaign = tmp_yaml("""
+        target:
+          name: Bot
+          chat_url: http://localhost:8000/api/chat
+        attacks:
+          - attacks/g.yaml
+    """)
+    config = load_campaign(campaign)
+    assert config.target_model == ""
+    assert config.target_architecture_type == ""
 
 
 def test_target_legacy_url_is_still_supported(tmp_yaml, tmp_path):

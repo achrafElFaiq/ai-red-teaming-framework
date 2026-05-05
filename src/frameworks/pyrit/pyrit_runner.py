@@ -3,14 +3,13 @@ import gc
 import logging
 from typing import Any, cast
 
-from config import get_runtime_settings, resolve_pyrit_attacker_config, build_pyrit_scorer_config
+from settings import get_runtime_settings, build_pyrit_attacker_config, build_pyrit_scorer_config
 from pyrit.executor.attack import (
     AttackAdversarialConfig,
     AttackScoringConfig,
     CrescendoAttack,
     PromptSendingAttack,
     RedTeamingAttack,
-    AttackExecutor,
 )
 
 from pyrit.executor.attack.core.attack_executor import AttackExecutorResult
@@ -54,7 +53,7 @@ class PyritRunner(Runner):
     async def _run_async(self, target: AttackTarget, attack: Attack) -> list[AttackResult]:
         """Run the async PyRIT pipeline, then normalize the backend result."""
         objective_target = self._prepare_objective_target(target)
-        attacker_config = resolve_pyrit_attacker_config(attack.config)
+        attacker_config = build_pyrit_attacker_config()
         result = await self._execute_orchestrator(attack, objective_target, attacker_config)
         self._log_backend_trace(result)
         return self._normalize_results(result, target, attack)
@@ -147,30 +146,20 @@ class PyritRunner(Runner):
         )
 
     async def _run_dataset(self, attack, objective_target, scorer):
-        """Execute the dataset-style single-turn flow over multiple objectives."""
         prompts = attack.config.get("prompts", [])
-        if not prompts:
-            raise ValueError("Dataset mode requires 'prompts' in attack config")
+        results = []
 
-        scoring_config = AttackScoringConfig(objective_scorer=scorer)
+        for prompt in prompts:
+            scoring_config = AttackScoringConfig(objective_scorer=scorer)
+            single_attack = PromptSendingAttack(
+                objective_target=objective_target,
+                attack_scoring_config=scoring_config,
+            )
+            result = await single_attack.execute_async(objective=prompt)
+            results.append(result)
+            objective_target.reset_history()
 
-        single_attack = PromptSendingAttack(
-            objective_target=objective_target,
-            attack_scoring_config=scoring_config,
-        )
-
-        executor = AttackExecutor(max_concurrency=self.settings.pyrit_dataset_max_concurrency)
-
-        logger.info(
-            "Executing %d dataset prompt(s) in parallel with max_concurrency=%d",
-            len(prompts),
-            self.settings.pyrit_dataset_max_concurrency,
-        )
-
-        return await executor.execute_multi_objective_attack_async(
-            attack=single_attack,
-            objectives=prompts,
-        )
+        return results
 
     async def _run_red_teaming(self, attack, objective_target, attacker_llm, scorer):
         """Execute the multi-turn PyRIT red teaming flow."""
@@ -207,6 +196,13 @@ class PyritRunner(Runner):
 
     def _log_backend_trace(self, result: Any) -> None:
         """Log a readable summary of the raw PyRIT backend output."""
+        if isinstance(result, list):
+            logger.info(
+                "[PyRIT] Dataset finished — %d completed, 0 incomplete",
+                len(result),
+            )
+            return
+
         if isinstance(result, AttackExecutorResult):
             completed = len(result.completed_results)
             incomplete = len(result.incomplete_objectives)
@@ -225,10 +221,34 @@ class PyritRunner(Runner):
     def _normalize_results(self, result, target: AttackTarget, attack: Attack) -> list[AttackResult]:
         """Convert the PyRIT backend result into framework-level attack results."""
 
-        if isinstance(result, AttackExecutorResult):
+        if isinstance(result, list):
+            normalized_results = self._normalize_dataset_list_results(result, target, attack)
+        elif isinstance(result, AttackExecutorResult):
             normalized_results = self._normalize_dataset_results(result, target, attack)
         else:
             normalized_results = [self._normalize_single_result(result, target, attack)]
+
+        return normalized_results
+
+    def _normalize_dataset_list_results(
+        self,
+        result: list[Any],
+        target: AttackTarget,
+        attack: Attack,
+    ) -> list[AttackResult]:
+        """Normalize a sequential dataset execution into one result per prompt."""
+        from .pyrit_normalizer import PyritNormalizer
+
+        normalized_results: list[AttackResult] = []
+        for index, individual_result in enumerate(result):
+            attack_name = self._build_dataset_attack_name(attack.name, individual_result.objective, index)
+            normalizer = PyritNormalizer(
+                pyrit_result=individual_result,
+                db_path=self.settings.pyrit_db_path,
+                target_url=target.url,
+                attack_name=attack_name,
+            )
+            normalized_results.append(normalizer.normalize())
 
         return normalized_results
 

@@ -12,7 +12,7 @@ Edge cases:
   - No active conversation IDs → returns an empty result (achieved=False, no turns).
   - _clear_db() (commented out) can wipe PyRIT's SQLite tables between runs to avoid state pollution.
 
-Output: A framework-agnostic AttackResult, ready to be stored by JsonReportStore and rendered in RedTrace.
+Output: A framework-agnostic AttackResult, ready to be stored by JsonReportStore and rendered in RedTeaming Framework.
 """
 
 from datetime import datetime

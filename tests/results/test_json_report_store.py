@@ -1,15 +1,11 @@
 import json
-import os
 import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
 import sys
+from types import SimpleNamespace
 from unittest.mock import patch
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.models.attack_result import AttackResult
 from core.results.json_report_store import JsonReportStore
@@ -18,7 +14,10 @@ from core.results.json_report_store import JsonReportStore
 class JsonReportStoreTests(unittest.TestCase):
     def test_store_uses_runtime_reports_dir_by_default(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
-            with patch.dict(os.environ, {"JSON_REPORTS_DIR": tmp_dir}, clear=True):
+            with patch(
+                "core.results.json_report_store.get_runtime_settings",
+                return_value=SimpleNamespace(json_reports_dir=tmp_dir),
+            ):
                 store = JsonReportStore()
 
             self.assertEqual(store.reports_dir, Path(tmp_dir))

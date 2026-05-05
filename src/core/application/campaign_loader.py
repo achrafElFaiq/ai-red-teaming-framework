@@ -59,6 +59,8 @@ def load_campaign(yaml_path: str | Path) -> CampaignConfig:
         target_name=target_cfg["name"],
         target_chat_url=target_cfg["chat_url"],
         target_reset_memory_url=target_cfg["reset_memory_url"],
+        target_model=target_cfg["model"],
+        target_architecture_type=target_cfg["architecture_type"],
         target_input_field=target_cfg["input_field"],
         target_output_field=target_cfg["output_field"],
         active_attacks=attacks,
@@ -102,7 +104,7 @@ def _validate_top_level(raw: dict, path: Path) -> None:
         )
 
 
-def _parse_target(target_cfg: dict, path: Path) -> dict[str, str]:
+def _parse_target(target_cfg: dict, path: Path) -> dict[str, Any]:
     if "name" not in target_cfg:
         raise ValueError(f"{path}: target.name is required")
 
@@ -116,6 +118,14 @@ def _parse_target(target_cfg: dict, path: Path) -> dict[str, str]:
     if reset_memory_url and not reset_memory_url.startswith(("http://", "https://")):
         raise ValueError(f"{path}: target.reset_memory_url must start with http:// or https://")
 
+    model = target_cfg.get("model", "")
+    if not isinstance(model, str):
+        raise ValueError(f"{path}: target.model must be a string")
+
+    architecture_type = target_cfg.get("architecture_type", "")
+    if not isinstance(architecture_type, str):
+        raise ValueError(f"{path}: target.architecture_type must be a string")
+
     input_field = target_cfg.get("input_field", "prompt")
     if not isinstance(input_field, str) or not input_field.strip():
         raise ValueError(f"{path}: target.input_field must be a non-empty string")
@@ -127,11 +137,13 @@ def _parse_target(target_cfg: dict, path: Path) -> dict[str, str]:
         raise ValueError(f"{path}: target.output_field must be a non-empty string")
 
     return {
-        "name": target_cfg["name"],
-        "chat_url": chat_url,
-        "reset_memory_url": reset_memory_url,
-        "input_field": input_field,
-        "output_field": output_field,
+        "name": str(target_cfg["name"]),
+        "chat_url": str(chat_url),
+        "reset_memory_url": str(reset_memory_url),
+        "model": model.strip(),
+        "architecture_type": architecture_type.strip(),
+        "input_field": str(input_field),
+        "output_field": str(output_field),
     }
 
 
@@ -204,6 +216,8 @@ def _build_pyrit_attack(entry: dict[str, Any], index: int, path: Path) -> PyritA
 
     scoring = entry.get("scoring")
     if scoring:
+        if not isinstance(scoring, dict):
+            raise ValueError(f"{path}: attacks[{index}].scoring must be a mapping")
         config["scoring_question"] = _build_scoring_question(scoring, index, path)
 
     return PyritAttack(intent=entry["intent"], config=config)
@@ -227,7 +241,7 @@ def _build_garak_attack(entry: dict[str, Any], index: int, path: Path) -> GarakA
     return GarakAttack(intent=entry["intent"], config=config)
 
 
-def _build_scoring_question(scoring: dict[str, str], index: int, path: Path):
+def _build_scoring_question(scoring: dict[str, Any], index: int, path: Path):
     for key in ("true_description", "false_description", "category"):
         if key not in scoring:
             raise ValueError(f"{path}: attacks[{index}].scoring.{key} is required")

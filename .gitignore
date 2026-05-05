@@ -26,6 +26,7 @@ reports/
 
 # Campaigns & attack catalog (contain confidential attack data)
 campaigns/
+attacks/
 attack_catalog/
 
 # Environment config (contains API keys / endpoints)
@@ -34,3 +35,5 @@ attack_catalog/
 # Use-cases folders (legacy, not tracked)
 use_cases/
 orange_use_cases/
+
+strategy.md

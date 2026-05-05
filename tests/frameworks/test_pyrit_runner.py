@@ -1,27 +1,24 @@
 import asyncio
-import sys
 import unittest
-from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.models.attack import Attack
 from core.models.attack_target import AttackTarget
+from frameworks.pyrit.pyrit_adapter import PyritAdapter
 from frameworks.pyrit.pyrit_runner import PyritRunner
 
 
 class DummyTarget(AttackTarget):
     def __init__(self):
         super().__init__("PyRIT test target", "http://localhost:8000/api/chat")
+        self.reset_count = 0
 
     def query(self, prompt: str):
         return "dummy response"
 
     def reset_history(self) -> None:
-        pass
+        self.reset_count += 1
 
 
 class DummyAttack(Attack):
@@ -33,6 +30,24 @@ class DummyAttack(Attack):
 
 
 class PyritRunnerTests(unittest.TestCase):
+    def setUp(self):
+        self.settings_patcher = patch(
+            "frameworks.pyrit.pyrit_runner.get_runtime_settings",
+            return_value=type(
+                "Settings",
+                (),
+                {
+                    "pyrit_loop_shutdown_delay": 0,
+                    "pyrit_dataset_max_concurrency": 5,
+                    "pyrit_db_path": "/tmp/pyrit.db",
+                },
+            )(),
+        )
+        self.settings_patcher.start()
+
+    def tearDown(self):
+        self.settings_patcher.stop()
+
     def test_run_drains_pending_asyncio_tasks_before_closing_loop(self):
         runner = PyritRunner()
         target = DummyTarget()
@@ -106,6 +121,52 @@ class PyritRunnerTests(unittest.TestCase):
                     )
 
         asyncio.run(run_test())
+
+    def test_adapter_wrapper_exposes_reset_history(self):
+        runner = PyritRunner()
+        runner._initialize_memory()
+        target = DummyTarget()
+        wrapped = PyritAdapter().wrap(target)
+
+        getattr(wrapped, "reset_history")()
+
+        self.assertEqual(target.reset_count, 1)
+
+    def test_run_dataset_resets_target_between_prompts(self):
+        runner = PyritRunner()
+        runner._initialize_memory()
+        target = DummyTarget()
+        objective_target = PyritAdapter().wrap(target)
+        attack = DummyAttack({"prompts": ["one", "two"]})
+
+        class FakePromptSendingAttack:
+            def __init__(self, *args, **kwargs):
+                pass
+
+            async def execute_async(self, objective: str):
+                return SimpleNamespace(objective=objective)
+
+        async def run_test():
+            with patch("frameworks.pyrit.pyrit_runner.AttackScoringConfig", return_value=object()), \
+                 patch("frameworks.pyrit.pyrit_runner.PromptSendingAttack", FakePromptSendingAttack):
+                results = await runner._run_dataset(attack, objective_target, scorer="scorer")
+
+            self.assertEqual([result.objective for result in results], ["one", "two"])
+            self.assertEqual(target.reset_count, 2)
+
+        asyncio.run(run_test())
+
+    def test_normalize_results_accepts_dataset_result_list(self):
+        runner = PyritRunner()
+        target = DummyTarget()
+        attack = DummyAttack()
+        dataset_results = [SimpleNamespace(objective="one"), SimpleNamespace(objective="two")]
+
+        with patch.object(runner, "_normalize_dataset_list_results", return_value=["r1", "r2"]) as normalize_mock:
+            results = runner._normalize_results(dataset_results, target, attack)
+
+        self.assertEqual(results, ["r1", "r2"])
+        normalize_mock.assert_called_once_with(dataset_results, target, attack)
 
 
 if __name__ == "__main__":

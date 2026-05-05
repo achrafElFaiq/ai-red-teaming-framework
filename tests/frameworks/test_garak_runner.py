@@ -6,10 +6,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
-
 from core.models.attack import Attack
 from core.models.attack_result import AttackResult
 from core.models.attack_target import AttackTarget
@@ -41,6 +37,21 @@ class DummyAttack(Attack):
 
 
 class GarakRunnerTests(unittest.TestCase):
+    def setUp(self):
+        self.settings_patcher = patch(
+            "frameworks.garak.garak_runner.get_runtime_settings",
+            return_value=SimpleNamespace(
+                garak_reports_dir="/tmp/garak",
+                garak_config_path="config/garak_config.json",
+                garak_request_timeout=60,
+                garak_default_report_prefix="reports/run",
+            ),
+        )
+        self.settings_patcher.start()
+
+    def tearDown(self):
+        self.settings_patcher.stop()
+
     def test_run_executes_garak_and_normalizes_report(self):
         runner = GarakRunner()
         target = DummyTarget()
@@ -67,7 +78,7 @@ class GarakRunnerTests(unittest.TestCase):
         self.assertEqual(results, [expected_result])
         run_mock.assert_called_once()
         command = run_mock.call_args.args[0]
-        self.assertEqual(command[0], "python3")
+        self.assertEqual(command[0], "python")
         self.assertIn("--probes", command)
         self.assertIn("promptinject", command)
         self.assertIn("--report_prefix", command)

@@ -49,7 +49,7 @@ def run_preflight_checks(config: CampaignConfig) -> list[str]:
 
     # ── PyRIT-specific checks ─────────────────────────────────
     if "pyrit" in frameworks:
-        from config import get_runtime_settings
+        from settings import get_runtime_settings
         settings = get_runtime_settings(frameworks={"pyrit"})
         issues.extend(_check_llm_endpoint("Attacker LLM", settings.pyrit_attacker_endpoint, settings.pyrit_attacker_api_key))
         issues.extend(_check_llm_endpoint("Scorer LLM", settings.pyrit_scorer_endpoint, settings.pyrit_scorer_api_key))

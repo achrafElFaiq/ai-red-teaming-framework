@@ -5,6 +5,8 @@ AttackTarget — Concrete HTTP target used by the framework.
 A target is defined by:
   - chat_url               : where prompts are sent
   - reset_memory_url       : optional endpoint to reset state
+  - model                  : optional model name
+  - architecture_type      : optional architecture/category
   - input_field            : input field name (single string field)
   - output_field           : output field name
 
@@ -30,12 +32,16 @@ class AttackTarget:
         reset_memory_url: str | None = None,
         input_field: str = "prompt",
         output_field: str = "response",
+        model: str = "",
+        architecture_type: str = "",
     ):
         self.name = name
         self.chat_url = chat_url
         self.reset_memory_url = reset_memory_url or ""
         self.input_field = input_field
         self.output_field = output_field
+        self.model = model
+        self.architecture_type = architecture_type
 
     @property
     def url(self) -> str:
@@ -86,5 +92,6 @@ class AttackTarget:
         return (
             f"AttackTarget(name={self.name}, chat_url={self.chat_url}, "
             f"reset_memory_url={self.reset_memory_url or 'disabled'}, "
+            f"model={self.model or 'n/a'}, architecture_type={self.architecture_type or 'n/a'}, "
             f"input_field={self.input_field}, output_field={self.output_field})"
         )

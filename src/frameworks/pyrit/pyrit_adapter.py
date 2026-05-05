@@ -33,6 +33,10 @@ class _WrappedPromptTarget(PromptTarget):
     def supports_multi_turn(self) -> bool:
         return True
 
+    def reset_history(self) -> None:
+        self._wrapped_target.reset_history()
+        self._turn_counter = 0
+
     async def send_prompt_async(self, *, message: Message) -> list[Message]:
         user_piece = message.message_pieces[0]
         prompt = user_piece.converted_value
@@ -41,7 +45,9 @@ class _WrappedPromptTarget(PromptTarget):
         prompt_preview = prompt[:120].replace("\n", " ")
         logger.info("[Turn %d] (Attacker) -> %s", self._turn_counter, prompt_preview)
 
-        response = self._wrapped_target.query(prompt) or ""
+        response = self._wrapped_target.query(prompt)
+        if response is None:
+            response = ""
 
         response_preview = response[:120].replace("\n", " ")
         logger.info("[Turn %d] (Target)  -> %s", self._turn_counter, response_preview)

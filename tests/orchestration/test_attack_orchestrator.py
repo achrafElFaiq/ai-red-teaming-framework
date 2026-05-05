@@ -1,12 +1,8 @@
 import unittest
 from pathlib import Path
-import sys
 import os
+from typing import cast
 from unittest.mock import patch
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.models.attack import Attack
 from core.models.attack_result import AttackResult, PromptResult
@@ -17,7 +13,12 @@ from core.results.json_report_store import JsonReportStore
 
 class DummyTarget(AttackTarget):
     def __init__(self):
-        super().__init__("Test target", "http://localhost:8000/api/chat")
+        super().__init__(
+            "Test target",
+            "http://localhost:8000/api/chat",
+            model="customerbot-v2",
+            architecture_type="RAG-connected bot",
+        )
         self.reset_count = 0
 
     def query(self, prompt: str):
@@ -62,7 +63,7 @@ class AttackOrchestratorTests(unittest.TestCase):
     def test_orchestrator_has_empty_state_by_default(self):
         target = DummyTarget()
         report_store = FakeReportStore()
-        orchestrator = AttackOrchestrator(target=target, report_store=report_store)
+        orchestrator = AttackOrchestrator(target=target, report_store=cast(JsonReportStore, report_store))
 
         self.assertEqual(orchestrator.result_count, 0)
         self.assertEqual(orchestrator.report_count, 0)
@@ -87,7 +88,7 @@ class AttackOrchestratorTests(unittest.TestCase):
     def test_execute_attacks_aggregates_normalized_results_in_order(self):
         target = DummyTarget()
         report_store = FakeReportStore()
-        orchestrator = AttackOrchestrator(target=target, report_store=report_store)
+        orchestrator = AttackOrchestrator(target=target, report_store=cast(JsonReportStore, report_store))
 
         result_a = AttackResult(
             framework="dummy",
@@ -114,6 +115,8 @@ class AttackOrchestratorTests(unittest.TestCase):
         results = orchestrator.execute_attacks()
 
         self.assertEqual(results, [result_a, result_b, result_c])
+        self.assertEqual(result_a.target_model, "customerbot-v2")
+        self.assertEqual(result_a.target_architecture_type, "RAG-connected bot")
         self.assertEqual(orchestrator.results, [result_a, result_b, result_c])
         self.assertEqual(orchestrator.result_count, 3)
         self.assertEqual(orchestrator.report_count, 3)
@@ -142,7 +145,7 @@ class AttackOrchestratorTests(unittest.TestCase):
     def test_has_failures_detects_failed_prompt_results(self):
         target = DummyTarget()
         report_store = FakeReportStore()
-        orchestrator = AttackOrchestrator(target=target, report_store=report_store)
+        orchestrator = AttackOrchestrator(target=target, report_store=cast(JsonReportStore, report_store))
 
         failed_result = AttackResult(
             framework="dummy",
@@ -170,7 +173,7 @@ class AttackOrchestratorTests(unittest.TestCase):
     def test_execute_attacks_collects_technical_failures_and_continues(self):
         target = DummyTarget()
         report_store = FakeReportStore()
-        orchestrator = AttackOrchestrator(target=target, report_store=report_store)
+        orchestrator = AttackOrchestrator(target=target, report_store=cast(JsonReportStore, report_store))
 
         success_result = AttackResult(
             framework="dummy",
@@ -225,7 +228,7 @@ class AttackOrchestratorTests(unittest.TestCase):
     def test_execute_attacks_logs_attack_start_with_attack_tag(self):
         target = DummyTarget()
         report_store = FakeReportStore()
-        orchestrator = AttackOrchestrator(target=target, report_store=report_store)
+        orchestrator = AttackOrchestrator(target=target, report_store=cast(JsonReportStore, report_store))
 
         attack = DummyAttack(
             "logged",

@@ -20,8 +20,10 @@ campaign:
 # ── Cible à attaquer ─────────────────────────────────────────
 target:
   name: "REMPLACER — Nom lisible de la cible"       # ex: "CustomerBot SIA"
+  model: "REMPLACER — Nom du modèle"               # ex: "gpt-4.1", "llama3.1", "customerbot-v2"
+  architecture_type: "REMPLACER — Type d'architecture"  # ex: "Bare chatbot", "RAG-connected bot"
   chat_url: "http://localhost:8000/api/chat"        # endpoint HTTP qui reçoit les prompts
-  # reset_memory_url: "http://localhost:8000/api/reset"  # optionnel (si la cible garde un contexte)
+  reset_memory_url: "http://localhost:8000/api/reset"  # optionnel (si la cible garde un contexte)
   input_field: "prompt"                             # nom du champ d'entrée string
   output_field: "response"                          # nom du champ de sortie JSON
 

@@ -1,6 +1,6 @@
 """
-RedTrace — Red Teaming Dashboard
-=================================
+RedTeaming Framework
+====================
 Three tabs: Overview · Campaigns · Attacks
 Light warm minimal theme.
 
@@ -21,10 +21,10 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from config import get_runtime_settings
+from settings import get_runtime_settings
 
 st.set_page_config(
-    page_title="Trace attacks",
+    page_title="RedTeaming Framework",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -136,6 +136,10 @@ def group_by_campaign(reports: list[dict]) -> dict[str, list[dict]]:
 
 def campaign_color(idx: int) -> str:
     return _ACCENT[idx % len(_ACCENT)]
+
+
+def first_campaign_value(reports: list[dict], key: str, default: str = "—") -> str:
+    return next((str(r.get(key, "")).strip() for r in reports if str(r.get(key, "")).strip()), default)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -305,6 +309,8 @@ def render_overview(reports: list[dict], campaigns: dict[str, list[dict]]):
         accent = campaign_color(idx)
         bar_c  = "#B91C1C" if ck["rate"] >= 50 else ("#D97706" if ck["rate"] >= 25 else "#059669")
         target_url = next((r.get("target_url", "") for r in cr if r.get("target_url")), "—")
+        target_model = first_campaign_value(cr, "target_model")
+        architecture_type = first_campaign_value(cr, "target_architecture_type")
         st.markdown(f"""
 <div style="background:#FFFFFF;border:1px solid #E5E3DE;border-left:4px solid {accent};
             border-radius:0 12px 12px 0;padding:18px 22px;margin-bottom:10px">
@@ -318,6 +324,11 @@ def render_overview(reports: list[dict], campaigns: dict[str, list[dict]]):
                 <span style="display:inline-flex;align-items:center;gap:3px">{dot('#15803D')}{ck['resisted']} resisted</span>
                 <span>·</span><span>pyrit {ck['pyrit']} · garak {ck['garak']}</span>
                 <span>·</span><span style="font-family:monospace;font-size:11px">{e(target_url)}</span>
+            </div>
+            <div style="font-size:12px;color:#888;margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                <span><strong style="color:#555">Model:</strong> {e(target_model)}</span>
+                <span>·</span>
+                <span><strong style="color:#555">Architecture:</strong> {e(architecture_type)}</span>
             </div>
         </div>
         <div style="text-align:right;flex-shrink:0">
@@ -362,6 +373,9 @@ def _render_one_campaign(cname: str, reports: list[dict], idx: int):
     ck     = campaign_stats(reports)
     accent = campaign_color(idx)
     bar_c  = "#B91C1C" if ck["rate"] >= 50 else ("#D97706" if ck["rate"] >= 25 else "#059669")
+    target_model = first_campaign_value(reports, "target_model")
+    architecture_type = first_campaign_value(reports, "target_architecture_type")
+    target_url = first_campaign_value(reports, "target_url")
 
     st.markdown(f"""
 <div style="border-left:4px solid {accent};padding-left:16px;margin-bottom:22px">
@@ -372,6 +386,13 @@ def _render_one_campaign(cname: str, reports: list[dict], idx: int):
         <span>·</span>
         <span style="display:inline-flex;align-items:center;gap:3px">{dot('#15803D')}{ck['resisted']} resisted</span>
         <span>·</span><span>pyrit {ck['pyrit']} · garak {ck['garak']}</span>
+    </div>
+    <div style="font-size:12px;color:#888;margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span><strong style="color:#555">Model:</strong> {e(target_model)}</span>
+        <span>·</span>
+        <span><strong style="color:#555">Architecture:</strong> {e(architecture_type)}</span>
+        <span>·</span>
+        <span style="font-family:monospace;font-size:11px">{e(target_url)}</span>
     </div>
 </div>""", unsafe_allow_html=True)
 

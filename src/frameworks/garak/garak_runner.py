@@ -3,7 +3,7 @@ import subprocess
 import json
 from pathlib import Path
 
-from config import get_runtime_settings
+from settings import get_runtime_settings
 from core.models.attack_target import AttackTarget
 from core.contracts.runner import Runner
 from core.models.attack import Attack

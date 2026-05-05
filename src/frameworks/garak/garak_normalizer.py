@@ -15,7 +15,7 @@ Pipeline:
   6. Wrap everything into a standard AttackResult (framework-agnostic), ready for storage and rendering.
 
 Output: An AttackResult with a list of PromptResults (one per probe output), stored by JsonReportStore
-        and rendered in the RedTrace dashboard under the Garak "View probes" section.
+        and rendered in the RedTeaming Framework dashboard under the Garak "View probes" section.
 """
 
 import json

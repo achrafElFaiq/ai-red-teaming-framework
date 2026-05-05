@@ -2,7 +2,7 @@ from datetime import datetime
 import logging
 from pathlib import Path
 
-from config import get_runtime_settings
+from settings import get_runtime_settings
 from core.models.attack_result import AttackResult
 from core.utils import slugify
 
