@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime
 
 from core.models.attack_target import AttackTarget
 from core.models.attack import Attack
@@ -27,12 +28,16 @@ class AttackOrchestrator:
         self.results: list[AttackResult] = []
         self.saved_report_paths: list[str] = []
         self.technical_failures: list[dict[str, str]] = []
+        self.campaign_run_id: str = ""
+        self.campaign_run_timestamp: datetime | None = None
 
 
     def execute_attacks(self) -> list[AttackResult]:
         self.results = []
         self.saved_report_paths = []
         self.technical_failures = []
+        self.campaign_run_timestamp = datetime.now()
+        self.campaign_run_id = self.campaign_run_timestamp.strftime("%Y%m%d_%H%M%S_%f")
         total = len(self.attacks)
         campaign_start = time.monotonic()
         logger.info(
@@ -54,6 +59,8 @@ class AttackOrchestrator:
                 # Stamp each result with campaign name
                 for result in attack_results:
                     result.campaign_name = self.campaign_name
+                    result.campaign_run_id = self.campaign_run_id
+                    result.campaign_run_timestamp = self.campaign_run_timestamp
                     result.target_model = getattr(self.target, "model", "")
                     result.target_architecture_type = getattr(self.target, "architecture_type", "")
 

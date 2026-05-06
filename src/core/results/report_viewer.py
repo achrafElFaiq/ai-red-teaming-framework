@@ -22,6 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from settings import get_runtime_settings
+from core.results.json_report_store import JsonReportStore
 
 st.set_page_config(
     page_title="RedTeaming Framework",
@@ -127,10 +128,45 @@ def parse_ts(r: dict) -> datetime | None:
         return None
 
 
+def parse_campaign_run_ts(r: dict) -> datetime | None:
+    raw = r.get("campaign_run_timestamp", "")
+    try:
+        return datetime.fromisoformat(raw) if raw else None
+    except Exception:
+        return None
+
+
+def campaign_instance_key(r: dict) -> str:
+    run_id = str(r.get("campaign_run_id", "")).strip()
+    if run_id:
+        return f"run:{run_id}"
+    return f"name:{r.get('campaign_name') or 'Uncategorized'}"
+
+
+def campaign_title(reports: list[dict]) -> str:
+    return first_campaign_value(reports, "campaign_name", "Uncategorized")
+
+
+def campaign_instance_timestamp(reports: list[dict]) -> datetime | None:
+    for report in reports:
+        run_ts = parse_campaign_run_ts(report)
+        if run_ts:
+            return run_ts
+    return max((parse_ts(report) for report in reports if parse_ts(report)), default=None)
+
+
+def format_campaign_timestamp(dt: datetime | None) -> str:
+    return dt.strftime("%Y-%m-%d %H:%M:%S") if dt else "Unknown run"
+
+
+def campaign_label(reports: list[dict]) -> str:
+    return f"{campaign_title(reports)} · {format_campaign_timestamp(campaign_instance_timestamp(reports))}"
+
+
 def group_by_campaign(reports: list[dict]) -> dict[str, list[dict]]:
     g: dict[str, list[dict]] = {}
     for r in reports:
-        g.setdefault(r.get("campaign_name") or "Uncategorized", []).append(r)
+        g.setdefault(campaign_instance_key(r), []).append(r)
     return g
 
 
@@ -140,6 +176,12 @@ def campaign_color(idx: int) -> str:
 
 def first_campaign_value(reports: list[dict], key: str, default: str = "—") -> str:
     return next((str(r.get(key, "")).strip() for r in reports if str(r.get(key, "")).strip()), default)
+
+
+def delete_campaign_reports(reports_path: Path, reports: list[dict]) -> int:
+    filenames = [r.get("_filename", "") for r in reports if r.get("_filename")]
+    store = JsonReportStore(reports_path)
+    return store.delete_files(filenames)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -250,7 +292,16 @@ def build_sidebar(reports: list[dict], campaigns: dict[str, list[dict]]) -> tupl
             unsafe_allow_html=True,
         )
 
-        sel = st.selectbox("Campaign", ["All Campaigns"] + sorted(campaigns.keys()))
+        options = ["__all__"] + sorted(
+            campaigns.keys(),
+            key=lambda key: campaign_instance_timestamp(campaigns[key]) or datetime.min,
+            reverse=True,
+        )
+        sel = st.selectbox(
+            "Campaign",
+            options,
+            format_func=lambda option: "All Campaigns" if option == "__all__" else campaign_label(campaigns[option]),
+        )
 
         st.markdown("---")
         st.markdown('<p style="font-size:12px;font-weight:600;color:#333 !important;margin-bottom:6px">Framework</p>', unsafe_allow_html=True)
@@ -269,10 +320,10 @@ def build_sidebar(reports: list[dict], campaigns: dict[str, list[dict]]) -> tupl
             unsafe_allow_html=True,
         )
 
-    sel_campaign = None if sel == "All Campaigns" else sel
+    sel_campaign = None if sel == "__all__" else sel
     out = list(reports)
     if sel_campaign:
-        out = [r for r in out if (r.get("campaign_name") or "Uncategorized") == sel_campaign]
+        out = [r for r in out if campaign_instance_key(r) == sel_campaign]
     if not show_pyrit:  out = [r for r in out if r.get("framework") != "pyrit"]
     if not show_garak:  out = [r for r in out if r.get("framework") != "garak"]
     if not show_breached: out = [r for r in out if not is_breached(r)]
@@ -304,19 +355,27 @@ def render_overview(reports: list[dict], campaigns: dict[str, list[dict]]):
     st.markdown(breach_bar_html(rate), unsafe_allow_html=True)
     st.markdown(section_label("Campaigns"), unsafe_allow_html=True)
 
-    for idx, (cname, cr) in enumerate(sorted(campaigns.items())):
+    sorted_campaigns = sorted(
+        campaigns.items(),
+        key=lambda item: campaign_instance_timestamp(item[1]) or datetime.min,
+        reverse=True,
+    )
+    for idx, (campaign_key, cr) in enumerate(sorted_campaigns):
         ck = campaign_stats(cr)
         accent = campaign_color(idx)
         bar_c  = "#B91C1C" if ck["rate"] >= 50 else ("#D97706" if ck["rate"] >= 25 else "#059669")
         target_url = next((r.get("target_url", "") for r in cr if r.get("target_url")), "—")
         target_model = first_campaign_value(cr, "target_model")
         architecture_type = first_campaign_value(cr, "target_architecture_type")
+        cname = campaign_title(cr)
+        run_label = format_campaign_timestamp(campaign_instance_timestamp(cr))
         st.markdown(f"""
 <div style="background:#FFFFFF;border:1px solid #E5E3DE;border-left:4px solid {accent};
-            border-radius:0 12px 12px 0;padding:18px 22px;margin-bottom:10px">
+            border-radius:0 12px 12px 0;padding:18px 22px;margin-bottom:10px;position:relative">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
         <div>
             <div style="font-size:15px;font-weight:600;color:#111;margin-bottom:6px">{e(cname)}</div>
+            <div style="font-size:11px;color:#999;font-family:monospace;margin-bottom:8px">Run: {e(run_label)}</div>
             <div style="font-size:12px;color:#888;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 <span>{ck['total']} attack(s)</span><span>·</span>
                 <span style="display:inline-flex;align-items:center;gap:3px">{dot('#B91C1C')}{ck['breached']} breached</span>
@@ -346,28 +405,29 @@ def render_overview(reports: list[dict], campaigns: dict[str, list[dict]]):
 # Tab 2 — Campaigns
 # ─────────────────────────────────────────────────────────────────
 
-def render_campaigns(reports: list[dict], campaigns: dict[str, list[dict]], sel: str | None):
+def render_campaigns(reports_path: Path, reports: list[dict], campaigns: dict[str, list[dict]], sel: str | None):
     if sel:
-        _render_one_campaign(sel, campaigns.get(sel, []), 0)
+        _render_one_campaign(reports_path, sel, campaigns.get(sel, []), 0)
     else:
         sorted_campaigns = sorted(
             campaigns.items(),
-            key=lambda x: parse_ts(x[1][0]).timestamp() if x[1] and parse_ts(x[1][0]) else 0,
+            key=lambda x: campaign_instance_timestamp(x[1]) or datetime.min,
             reverse=True
         )
-        for idx, (cname, cr) in enumerate(sorted_campaigns):
+        for idx, (campaign_key, cr) in enumerate(sorted_campaigns):
             ck = campaign_stats(cr)
+            label = campaign_label(cr)
 
-            with st.expander(f"{e(cname)} · {ck['total']} attacks · {ck['rate']}% breach rate"):
-                _render_one_campaign(cname, cr, idx)
+            with st.expander(f"{e(label)} · {ck['total']} attacks · {ck['rate']}% breach rate"):
+                _render_one_campaign(reports_path, campaign_key, cr, idx)
 
             if idx < len(sorted_campaigns) - 1:
                 st.markdown("<hr style='border:none;border-top:1px solid #E5E3DE;margin:12px 0'>", unsafe_allow_html=True)
 
 
-def _render_one_campaign(cname: str, reports: list[dict], idx: int):
+def _render_one_campaign(reports_path: Path, campaign_key: str, reports: list[dict], idx: int):
     if not reports:
-        st.markdown(f'<div style="color:#888;font-size:13px">No attacks in "{e(cname)}".</div>', unsafe_allow_html=True)
+        st.markdown('<div style="color:#888;font-size:13px">No attacks in this campaign run.</div>', unsafe_allow_html=True)
         return
 
     ck     = campaign_stats(reports)
@@ -376,10 +436,19 @@ def _render_one_campaign(cname: str, reports: list[dict], idx: int):
     target_model = first_campaign_value(reports, "target_model")
     architecture_type = first_campaign_value(reports, "target_architecture_type")
     target_url = first_campaign_value(reports, "target_url")
+    cname = campaign_title(reports)
+    run_label = format_campaign_timestamp(campaign_instance_timestamp(reports))
+
+    action_col, _ = st.columns([1, 5])
+    with action_col:
+        if st.button("🗑 Delete this run", key=f"delete-{campaign_key}", type="secondary", use_container_width=True):
+            delete_campaign_reports(reports_path, reports)
+            st.rerun()
 
     st.markdown(f"""
 <div style="border-left:4px solid {accent};padding-left:16px;margin-bottom:22px">
     <div style="font-size:20px;font-weight:700;color:#111;letter-spacing:-0.01em">{e(cname)}</div>
+    <div style="font-size:11px;color:#999;font-family:monospace;margin-top:4px">Run: {e(run_label)}</div>
     <div style="font-size:12px;color:#888;margin-top:5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
         <span>{ck['total']} attack(s)</span><span>·</span>
         <span style="display:inline-flex;align-items:center;gap:3px">{dot('#B91C1C')}{ck['breached']} breached</span>
@@ -524,31 +593,64 @@ def _render_probes(report: dict):
         st.markdown('<div style="color:#AAA;text-align:center;padding:32px;font-size:13px">No probes recorded.</div>', unsafe_allow_html=True)
         return
 
-    st.markdown("""
-<div style="background:#FFFFFF;border:1px solid #E5E3DE;border-radius:10px;overflow:hidden">
-<div style="display:flex;gap:12px;padding:10px 16px;border-bottom:1px solid #E5E3DE;
-            font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.08em">
-    <span style="flex:2">Prompt</span><span style="flex:2">Response</span>
-    <span style="min-width:120px">Detector</span><span style="min-width:80px">Outcome</span>
-</div>""", unsafe_allow_html=True)
+    failed_n = sum(1 for p in prompts if not p.get("passed", True))
 
-    failed_n = 0
+    # Build entire table as one HTML string for performance
+    rows_html = []
     for p in prompts:
         passed = p.get("passed", True)
-        if not passed: failed_n += 1
+        prompt_text = p.get("prompt", "")
+        response_text = p.get("response", "")
+        detector = p.get("detector", "")
         bl = "3px solid #B91C1C" if not passed else "3px solid transparent"
         bg = "#FFFAFA" if not passed else "#FFFFFF"
-        st.markdown(f"""
-<div style="display:flex;gap:12px;padding:10px 16px;border-bottom:1px solid #F5F4F0;
-            background:{bg};border-left:{bl};align-items:flex-start">
-    <span style="flex:2;font-size:12px;color:#333;word-break:break-all">{e(p.get('prompt',''))[:150]}</span>
-    <span style="flex:2;font-size:12px;color:#777;word-break:break-all">{e(p.get('response',''))[:150]}</span>
-    <span style="min-width:120px;font-size:11px;color:#888">{e(p.get('detector',''))}</span>
-    <span style="min-width:80px">{outcome_badge(not passed)}</span>
-</div>""", unsafe_allow_html=True)
 
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.markdown(f'<div style="text-align:center;font-size:12px;color:#888;margin-top:12px;font-weight:600">{failed_n} of {len(prompts)} probes breached</div>', unsafe_allow_html=True)
+        # Truncate to ~60 chars for glanceable view
+        trunc_prompt = e(prompt_text[:60]) + ("…" if len(prompt_text) > 60 else "")
+        trunc_response = e(response_text[:60]) + ("…" if len(response_text) > 60 else "")
+
+        # Expandable full text via HTML <details> — no Streamlit widget overhead
+        prompt_cell = f'<span style="font-size:12px;color:#333">{trunc_prompt}</span>'
+        if len(prompt_text) > 60:
+            prompt_cell += (
+                f'<details style="margin-top:6px"><summary style="font-size:10px;color:#2563EB;cursor:pointer;font-weight:500">show prompt</summary>'
+                f'<div style="margin-top:6px;font-size:12px;color:#333;white-space:pre-wrap;word-break:break-word;background:#F9F9F7;padding:8px;border-radius:6px">{e(prompt_text)}</div></details>'
+            )
+
+        response_cell = f'<span style="font-size:12px;color:#666">{trunc_response}</span>'
+        if len(response_text) > 60:
+            response_cell += (
+                f'<details style="margin-top:6px"><summary style="font-size:10px;color:#2563EB;cursor:pointer;font-weight:500">show response</summary>'
+                f'<div style="margin-top:6px;font-size:12px;color:#555;white-space:pre-wrap;word-break:break-word;background:#F9F9F7;padding:8px;border-radius:6px">{e(response_text)}</div></details>'
+            )
+
+        rows_html.append(
+            f'<tr style="background:{bg};border-left:{bl};border-bottom:1px solid #F5F4F0">'
+            f'<td style="padding:10px 12px;vertical-align:top;overflow:hidden">{prompt_cell}</td>'
+            f'<td style="padding:10px 12px;vertical-align:top;overflow:hidden">{response_cell}</td>'
+            f'<td style="padding:10px 12px;font-size:11px;color:#888;vertical-align:top">{e(detector)}</td>'
+            f'<td style="padding:10px 12px;vertical-align:top">{outcome_badge(not passed)}</td>'
+            f'</tr>'
+        )
+
+    table_html = f"""
+<div style="font-size:12px;color:#888;margin-bottom:12px;font-weight:600">{failed_n} of {len(prompts)} probes breached</div>
+<div style="background:#FFFFFF;border:1px solid #E5E3DE;border-radius:10px;overflow:hidden">
+<table style="width:100%;border-collapse:collapse;table-layout:fixed">
+<thead>
+<tr style="border-bottom:1px solid #E5E3DE">
+    <th style="padding:10px 12px;font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.08em;text-align:left;width:30%">Prompt</th>
+    <th style="padding:10px 12px;font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.08em;text-align:left;width:30%">Response</th>
+    <th style="padding:10px 12px;font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.08em;text-align:left;width:22%">Detector</th>
+    <th style="padding:10px 12px;font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:0.08em;text-align:left;width:18%">Outcome</th>
+</tr>
+</thead>
+<tbody>
+{''.join(rows_html)}
+</tbody>
+</table>
+</div>"""
+    st.markdown(table_html, unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -556,7 +658,8 @@ def _render_probes(report: dict):
 # ─────────────────────────────────────────────────────────────────
 
 def main():
-    reports_path = Path(get_runtime_settings(frameworks=set()).json_reports_dir)
+    _actual_root = Path(__file__).resolve().parents[3]
+    reports_path = (_actual_root / get_runtime_settings(frameworks=set()).json_reports_dir).resolve()
 
     if not reports_path.exists() or not any(reports_path.glob("*.json")):
         st.markdown(
@@ -575,7 +678,7 @@ def main():
     tab1, tab2, tab3 = st.tabs(["Overview", "Campaigns", "Attacks"])
 
     with tab1: render_overview(filtered, f_camps)
-    with tab2: render_campaigns(filtered, f_camps, sel)
+    with tab2: render_campaigns(reports_path, filtered, f_camps, sel)
     with tab3: render_attacks(filtered)
 
 

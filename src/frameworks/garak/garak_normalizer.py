@@ -57,18 +57,19 @@ class GarakNormalizer(Normalizer):
                 for output in entry.get("outputs", []):
                     response_text = output.get("text", "")
 
-                    # get score from detector results if available
-                    scores = list(detector_results.values())
-                    score = scores[0][0] if scores and scores[0] else None
-                    passed = (score == 0.0) if score is not None else True
+                    for detector_name, detector_scores in detector_results.items():
+                        if not detector_name:
+                            continue
+                        score = detector_scores[0] if detector_scores else None
+                        passed = (score == 0.0) if score is not None else True
 
-                    prompts.append(PromptResult(
-                        prompt=prompt_text,
-                        response=response_text,
-                        passed=passed,
-                        score=score,
-                        detector=list(detector_results.keys())[0] if detector_results else None
-                    ))
+                        prompts.append(PromptResult(
+                            prompt=prompt_text,
+                            response=response_text,
+                            passed=passed,
+                            score=score,
+                            detector=detector_name,
+                        ))
 
         return AttackResult(
             framework="garak",

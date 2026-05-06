@@ -115,6 +115,12 @@ class AttackOrchestratorTests(unittest.TestCase):
         results = orchestrator.execute_attacks()
 
         self.assertEqual(results, [result_a, result_b, result_c])
+        self.assertTrue(result_a.campaign_run_id)
+        self.assertEqual(result_a.campaign_run_id, result_b.campaign_run_id)
+        self.assertEqual(result_b.campaign_run_id, result_c.campaign_run_id)
+        self.assertIsNotNone(result_a.campaign_run_timestamp)
+        self.assertEqual(result_a.campaign_run_timestamp, result_b.campaign_run_timestamp)
+        self.assertEqual(result_b.campaign_run_timestamp, result_c.campaign_run_timestamp)
         self.assertEqual(result_a.target_model, "customerbot-v2")
         self.assertEqual(result_a.target_architecture_type, "RAG-connected bot")
         self.assertEqual(orchestrator.results, [result_a, result_b, result_c])

@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
 
@@ -52,9 +52,11 @@ class AttackResult(BaseModel):
     attack_name: str
     target_url: str
     campaign_name: str = ""
+    campaign_run_id: str = ""
+    campaign_run_timestamp: Optional[datetime] = None
     target_model: str = ""
     target_architecture_type: str = ""
-    timestamp: datetime = datetime.now()
+    timestamp: datetime = Field(default_factory=datetime.now)
 
     # garak — flat list of independent prompts
     prompts: Optional[list[PromptResult]] = None

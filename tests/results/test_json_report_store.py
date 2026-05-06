@@ -54,6 +54,40 @@ class JsonReportStoreTests(unittest.TestCase):
             self.assertEqual(first_payload["framework"], "pyrit")
             self.assertEqual(second_payload["framework"], "garak")
 
+    def test_save_batch_prefixes_filenames_with_campaign_run_id_when_present(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            store = JsonReportStore(tmp_dir)
+            result = AttackResult(
+                framework="pyrit",
+                attack_name="Dataset Attack",
+                target_url="http://localhost:8000/api/chat",
+                campaign_run_id="20260505_113000_123456",
+                timestamp=datetime(2026, 5, 5, 11, 30, 0),
+            )
+
+            paths = store.save_batch([result])
+
+            self.assertEqual(len(paths), 1)
+            self.assertEqual(
+                paths[0].name,
+                "20260505_113000_123456_pyrit_dataset_attack_20260505_113000.json",
+            )
+
+    def test_delete_files_removes_existing_report_files(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            store = JsonReportStore(tmp_dir)
+            first = Path(tmp_dir) / "a.json"
+            second = Path(tmp_dir) / "b.json"
+            third = Path(tmp_dir) / "missing.json"
+            first.write_text("{}", encoding="utf-8")
+            second.write_text("{}", encoding="utf-8")
+
+            deleted = store.delete_files([first.name, second.name, third.name])
+
+            self.assertEqual(deleted, 2)
+            self.assertFalse(first.exists())
+            self.assertFalse(second.exists())
+
 
 if __name__ == "__main__":
     unittest.main()

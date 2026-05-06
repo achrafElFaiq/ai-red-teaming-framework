@@ -29,12 +29,25 @@ class JsonReportStore:
         logger.debug("Saved %d report file(s)", len(saved_paths))
         return saved_paths
 
+    def delete_files(self, filenames: list[str]) -> int:
+        deleted = 0
+        for filename in filenames:
+            path = self.reports_dir / Path(filename).name
+            if path.exists() and path.is_file():
+                path.unlink()
+                deleted += 1
+
+        logger.debug("Deleted %d report file(s)", deleted)
+        return deleted
+
     def _save_result(self, result: AttackResult, index: int, total: int) -> Path:
         timestamp = result.timestamp
         if not isinstance(timestamp, datetime):
             timestamp = datetime.now()
 
         filename = f"{result.framework}_{slugify(result.attack_name)}_{timestamp.strftime('%Y%m%d_%H%M%S')}"
+        if result.campaign_run_id:
+            filename = f"{result.campaign_run_id}_{filename}"
         if total > 1:
             filename = f"{filename}_{index:02d}"
 
