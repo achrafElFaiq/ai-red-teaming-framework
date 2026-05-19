@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://redteaming-framework.local/schemas/attack.schema.json",
+  "title": "RedTeaming Attack",
+  "type": "object",
+  "required": ["framework", "intent"],
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["framework", "intent", "orchestrator", "objective"],
+      "properties": {
+        "framework": { "const": "pyrit" },
+        "intent": { "type": "string", "minLength": 1 },
+        "orchestrator": {
+          "type": "string",
+          "enum": ["dataset", "crescendo", "red_teaming"]
+        },
+        "objective": { "type": "string", "minLength": 1 },
+        "max_turns": { "type": "integer" },
+        "prompts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "scoring": {
+          "type": "object",
+          "required": ["true_description", "false_description", "category"],
+          "properties": {
+            "true_description": { "type": "string", "minLength": 1 },
+            "false_description": { "type": "string", "minLength": 1 },
+            "category": { "type": "string", "minLength": 1 }
+          },
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "required": ["framework", "intent", "probe"],
+      "properties": {
+        "framework": { "const": "garak" },
+        "intent": { "type": "string", "minLength": 1 },
+        "probe": { "type": "string", "minLength": 1 },
+        "report_prefix": { "type": "string", "minLength": 1 }
+      },
+      "not": {
+        "anyOf": [
+          { "required": ["input_field"] },
+          { "required": ["output_field"] },
+          { "required": ["req_template"] },
+          { "required": ["response_json_field"] }
+        ]
+      },
+      "additionalProperties": true
+    }
+  ]
+}
+

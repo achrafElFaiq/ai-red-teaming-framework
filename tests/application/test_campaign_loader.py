@@ -1,11 +1,11 @@
-"""Tests for core.application.campaign_loader."""
+"""Tests for redteaming.application.campaign_loader."""
 
 import textwrap
 from pathlib import Path
 
 import pytest
 
-from core.application.campaign_loader import load_campaign, load_attack
+from redteaming.application.campaign_loader import load_campaign, load_attack
 
 
 @pytest.fixture

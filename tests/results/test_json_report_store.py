@@ -3,19 +3,18 @@ import tempfile
 import unittest
 from datetime import datetime
 from pathlib import Path
-import sys
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from core.models.attack_result import AttackResult
-from core.results.json_report_store import JsonReportStore
+from redteaming.domain.models.attack_result import AttackResult
+from redteaming.infrastructure.persistence.json_report_store import JsonReportStore
 
 
 class JsonReportStoreTests(unittest.TestCase):
     def test_store_uses_runtime_reports_dir_by_default(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             with patch(
-                "core.results.json_report_store.get_runtime_settings",
+                    "redteaming.infrastructure.persistence.json_report_store.get_runtime_settings",
                 return_value=SimpleNamespace(json_reports_dir=tmp_dir),
             ):
                 store = JsonReportStore()

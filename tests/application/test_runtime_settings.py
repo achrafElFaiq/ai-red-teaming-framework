@@ -1,17 +1,11 @@
 import os
-import sys
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 import settings as settings_module
-from settings import build_pyrit_attacker_config, get_runtime_settings
+from settings import build_pyrit_attacker_config, get_garak_settings, get_pyrit_settings, get_reports_settings, get_runtime_settings
 
-
-# Minimal env vars always required
-_BASE_ENV = {
-    "JSON_REPORTS_DIR": "reports",
-}
 
 # PyRIT-specific env vars
 _PYRIT_ENV = {
@@ -21,17 +15,15 @@ _PYRIT_ENV = {
     "PYRIT_SCORER_ENDPOINT": "http://127.0.0.1:11434/v1",
     "PYRIT_SCORER_MODEL": "gemma4:e4b",
     "PYRIT_SCORER_API_KEY": "ollama",
-    "PYRIT_DB_PATH": "/tmp/pyrit.db",
 }
 
 # Garak-specific env vars
 _GARAK_ENV = {
-    "GARAK_REPORTS_DIR": "/tmp/garak",
-    "GARAK_CONFIG_PATH": "config/garak_config.json",
+    "GARAK_REQUEST_TIMEOUT": "60",
 }
 
 # All env vars combined
-_FULL_ENV = {**_BASE_ENV, **_PYRIT_ENV, **_GARAK_ENV}
+_FULL_ENV = {**_PYRIT_ENV, **_GARAK_ENV}
 
 
 class RuntimeSettingsTests(unittest.TestCase):
@@ -52,31 +44,40 @@ class RuntimeSettingsTests(unittest.TestCase):
 
     def test_pyrit_only_campaign_does_not_require_garak_vars(self):
         """A PyRIT-only campaign should NOT require GARAK_ vars."""
-        env = {**_BASE_ENV, **_PYRIT_ENV}
-        with patch.dict(os.environ, env, clear=True):
+        with patch.dict(os.environ, _PYRIT_ENV, clear=True):
             settings = get_runtime_settings(frameworks={"pyrit"})
         self.assertEqual(settings.pyrit_attacker_endpoint, "http://127.0.0.1:11434/v1")
-        self.assertEqual(settings.garak_reports_dir, "")  # empty default, not required
+        self.assertEqual(settings.garak_reports_dir, str(Path.home() / ".local" / "share" / "garak" / "garak_runs" / "reports"))
+        self.assertEqual(settings.garak_config_path, ".runtime/garak/garak_config.json")
 
     def test_garak_only_campaign_does_not_require_pyrit_vars(self):
         """A Garak-only campaign should NOT require PYRIT_ vars."""
-        env = {**_BASE_ENV, **_GARAK_ENV}
-        with patch.dict(os.environ, env, clear=True):
+        with patch.dict(os.environ, _GARAK_ENV, clear=True):
             settings = get_runtime_settings(frameworks={"garak"})
-        self.assertEqual(settings.garak_reports_dir, "/tmp/garak")
+        self.assertEqual(settings.garak_reports_dir, str(Path.home() / ".local" / "share" / "garak" / "garak_runs" / "reports"))
+        self.assertEqual(settings.garak_config_path, ".runtime/garak/garak_config.json")
         self.assertEqual(settings.pyrit_attacker_endpoint, "")  # empty default, not required
 
     def test_pyrit_only_campaign_raises_if_pyrit_vars_missing(self):
         """A PyRIT campaign should fail if PYRIT_ vars are missing."""
-        with patch.dict(os.environ, {**_BASE_ENV, **_GARAK_ENV}, clear=True):
+        with patch.dict(os.environ, _GARAK_ENV, clear=True):
             with self.assertRaisesRegex(ValueError, "PYRIT_ATTACKER_ENDPOINT"):
                 get_runtime_settings(frameworks={"pyrit"})
 
-    def test_garak_only_campaign_raises_if_garak_vars_missing(self):
-        """A Garak campaign should fail if GARAK_ vars are missing."""
-        with patch.dict(os.environ, {**_BASE_ENV, **_PYRIT_ENV}, clear=True):
-            with self.assertRaisesRegex(ValueError, "GARAK_REPORTS_DIR"):
-                get_runtime_settings(frameworks={"garak"})
+    def test_garak_only_campaign_uses_internal_paths_when_env_vars_are_missing(self):
+        """A Garak campaign should use built-in internal paths without GARAK_* env vars."""
+        with patch.dict(os.environ, {}, clear=True):
+            settings = get_runtime_settings(frameworks={"garak"})
+
+        self.assertEqual(settings.garak_reports_dir, str(Path.home() / ".local" / "share" / "garak" / "garak_runs" / "reports"))
+        self.assertEqual(settings.garak_config_path, ".runtime/garak/garak_config.json")
+
+    def test_reports_dir_is_fixed_to_reports(self):
+        """The framework always stores JSON reports in the built-in 'reports' directory."""
+        with patch.dict(os.environ, _PYRIT_ENV, clear=True):
+            settings = get_runtime_settings(frameworks={"pyrit"})
+
+        self.assertEqual(settings.json_reports_dir, "reports")
 
     def test_technical_vars_have_sensible_defaults(self):
         """PYRIT_LOOP_SHUTDOWN_DELAY, PYRIT_DATASET_MAX_CONCURRENCY, GARAK_REQUEST_TIMEOUT
@@ -105,10 +106,6 @@ class RuntimeSettingsTests(unittest.TestCase):
             "PYRIT_SCORER_ENDPOINT": "https://scorer.example.test/v1",
             "PYRIT_SCORER_MODEL": "scorer-model",
             "PYRIT_SCORER_API_KEY": "scorer-secret",
-            "PYRIT_DB_PATH": "/tmp/pyrit-test.db",
-            "JSON_REPORTS_DIR": "/tmp/json-reports",
-            "GARAK_REPORTS_DIR": "/tmp/garak-runs",
-            "GARAK_CONFIG_PATH": "/tmp/garak-config.json",
         }
         with patch.dict(os.environ, env, clear=True):
             settings = get_runtime_settings()
@@ -120,10 +117,9 @@ class RuntimeSettingsTests(unittest.TestCase):
         self.assertEqual(settings.pyrit_scorer_endpoint, "https://scorer.example.test/v1")
         self.assertEqual(settings.pyrit_scorer_model, "scorer-model")
         self.assertEqual(settings.pyrit_scorer_api_key, "scorer-secret")
-        self.assertEqual(settings.pyrit_db_path, "/tmp/pyrit-test.db")
-        self.assertEqual(settings.json_reports_dir, "/tmp/json-reports")
-        self.assertEqual(settings.garak_reports_dir, "/tmp/garak-runs")
-        self.assertEqual(settings.garak_config_path, "/tmp/garak-config.json")
+        self.assertEqual(settings.json_reports_dir, "reports")
+        self.assertEqual(settings.garak_reports_dir, str(Path.home() / ".local" / "share" / "garak" / "garak_runs" / "reports"))
+        self.assertEqual(settings.garak_config_path, ".runtime/garak/garak_config.json")
         self.assertEqual(
             attacker_config,
             {
@@ -132,6 +128,18 @@ class RuntimeSettingsTests(unittest.TestCase):
                 "attacker_api_key": "secret",
             },
         )
+
+    def test_specialized_settings_classes_are_loaded_cleanly(self):
+        with patch.dict(os.environ, _FULL_ENV, clear=True):
+            reports = get_reports_settings()
+            pyrit = get_pyrit_settings()
+            garak = get_garak_settings()
+
+        self.assertEqual(reports.json_reports_dir, "reports")
+        self.assertEqual(pyrit.attacker_endpoint, "http://127.0.0.1:11434/v1")
+        self.assertEqual(pyrit.scorer_model, "gemma4:e4b")
+        self.assertEqual(garak.garak_reports_dir, str(Path.home() / ".local" / "share" / "garak" / "garak_runs" / "reports"))
+        self.assertEqual(garak.garak_config_path, ".runtime/garak/garak_config.json")
 
 
 if __name__ == "__main__":

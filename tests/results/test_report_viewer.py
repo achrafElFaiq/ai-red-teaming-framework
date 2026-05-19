@@ -2,10 +2,15 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from core.results import report_viewer
+from redteaming.ui import streamlit_dashboard as report_viewer
+from redteaming.ui import streamlit_dashboard
 
 
 class ReportViewerHelpersTests(unittest.TestCase):
+    def test_streamlit_dashboard_ui_module_keeps_legacy_helpers_accessible(self):
+        self.assertIs(report_viewer.group_by_campaign, streamlit_dashboard.group_by_campaign)
+        self.assertIs(report_viewer.delete_campaign_reports, streamlit_dashboard.delete_campaign_reports)
+
     def test_group_by_campaign_keeps_same_title_runs_separate_when_run_id_differs(self):
         reports = [
             {

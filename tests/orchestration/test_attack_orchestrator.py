@@ -4,11 +4,11 @@ import os
 from typing import cast
 from unittest.mock import patch
 
-from core.models.attack import Attack
-from core.models.attack_result import AttackResult, PromptResult
-from core.models.attack_target import AttackTarget
-from core.orchestration.attack_orchestrator import AttackOrchestrator
-from core.results.json_report_store import JsonReportStore
+from redteaming.application.orchestrator import AttackOrchestrator
+from redteaming.domain.models.attack import Attack
+from redteaming.domain.models.attack_result import AttackResult, PromptResult
+from redteaming.infrastructure.http_attack_target import AttackTarget
+from redteaming.infrastructure.persistence.json_report_store import JsonReportStore
 
 
 class DummyTarget(AttackTarget):
@@ -218,17 +218,10 @@ class AttackOrchestratorTests(unittest.TestCase):
     def test_orchestrator_default_report_store_uses_runtime_reports_dir(self):
         target = DummyTarget()
 
-        with patch.dict(
-            os.environ,
-            {
-                "JSON_REPORTS_DIR": "/tmp/orchestrator-reports",
-            },
-            clear=True,
-        ):
-            orchestrator = AttackOrchestrator(target=target)
+        orchestrator = AttackOrchestrator(target=target)
 
         self.assertIsInstance(orchestrator.report_store, JsonReportStore)
-        self.assertEqual(orchestrator.report_store.reports_dir, Path("/tmp/orchestrator-reports"))
+        self.assertEqual(orchestrator.report_store.reports_dir, Path("reports"))
 
     def test_execute_attacks_logs_attack_start_with_attack_tag(self):
         target = DummyTarget()
@@ -247,7 +240,7 @@ class AttackOrchestratorTests(unittest.TestCase):
         )
         orchestrator.add_attack(attack)
 
-        with self.assertLogs("core.orchestration.attack_orchestrator", level="INFO") as captured_logs:
+        with self.assertLogs("redteaming.application.orchestrator", level="INFO") as captured_logs:
             orchestrator.execute_attacks()
 
         self.assertTrue(any("[Attack 1/1]" in message and attack.name in message for message in captured_logs.output))

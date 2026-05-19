@@ -1,343 +1,226 @@
 # RedTeaming Framework
 
-RedTeaming Framework is a Python-based red teaming toolkit for evaluating chatbot and LLM targets through YAML campaigns.
+A Python framework for running red teaming campaigns against HTTP/JSON chatbot targets, using `PyRIT` and `Garak`, then normalizing results into one report model.
 
-It currently supports:
+## Overview
 
-- **PyRIT** for dataset, crescendo, and red-teaming style attacks
-- **Garak** for probe-based attacks
-- **HTTP targets** configurable through campaign YAML files
-- **JSON reports** plus a **Streamlit dashboard** for analysis
+This repository provides:
 
----
+- campaign-driven execution from YAML files
+- `PyRIT` attacks (`dataset`, `crescendo`, `red_teaming`)
+- `Garak` probe-based attacks
+- normalized JSON reports written to `reports/`
+- a Streamlit dashboard for report exploration
+- CLI commands for run / validate / doctor / dashboard
 
-## 1. What the framework does
+## Supported frameworks
 
-The framework lets you describe a campaign like this:
+- `pyrit`
+- `garak`
 
-1. define the **target** to attack
-2. define a list of **attack YAML files**
-3. run the campaign with `main.py`
-4. execute PyRIT and/or Garak attacks against the target
-5. normalize outputs into a common report format
-6. save reports to `reports/`
-7. inspect the results in the dashboard
+## Quickstart
 
-In practice, the flow is:
-
-```text
-campaign YAML
-→ target config
-→ attack YAML files
-→ PyRIT / Garak execution
-→ normalized AttackResult JSON files
-→ dashboard view
-```
-
----
-
-## 2. Project structure
-
-```text
-.
-├── main.py                  # CLI entrypoint
-├── requirements.txt         # Python dependencies
-├── src/                     # source code
-│   ├── settings.py          # runtime settings loaded from .env
-│   ├── core/                # campaign loading, orchestration, reporting
-│   └── frameworks/          # PyRIT and Garak integrations
-├── examples/                # example campaigns, attacks, templates
-│   ├── attacks/             # attack YAML catalog (R1–R5)
-│   ├── campaigns/           # ready-to-run campaign YAMLs
-│   └── templates/           # skeletons for new campaigns and attacks
-├── config/                  # runtime config files (e.g. generated Garak config)
-├── reports/                 # generated JSON reports (gitignored)
-├── tests/                   # test suite
-├── .env.example             # environment variable template
-└── README.md
-```
-
----
-
-## 3. Prerequisites
-
-You need:
-
-- **Python ≥ 3.11**
-- a virtual environment
-- a target HTTP endpoint to test
-- PyRIT if you want to run PyRIT campaigns
-- Garak if you want to run Garak campaigns
-
----
-
-## 4. Setup
-
-### Create and activate a virtual environment
+### 1. Create a virtual environment
 
 ```zsh
 python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-### Install dependencies
+### 2. Install the package
 
 ```zsh
-pip install -r requirements.txt
+pip install -e .
 ```
 
-PyRIT and Garak are optional — uncomment them in `requirements.txt` or install separately:
+For test tooling:
 
 ```zsh
-pip install pyrit   # for PyRIT campaigns
-pip install garak   # for Garak campaigns
+pip install -e '.[dev]'
 ```
 
-### Copy the environment template
+Framework runtimes are installed separately when needed:
+
+```zsh
+pip install pyrit
+pip install garak
+```
+
+### 3. Copy the environment template
 
 ```zsh
 cp .env.example .env
 ```
 
-Then edit `.env` for your setup.
-
-The main variables are:
-
-- **PyRIT attacker LLM**
-  - `PYRIT_ATTACKER_ENDPOINT`
-  - `PYRIT_ATTACKER_MODEL`
-  - `PYRIT_ATTACKER_API_KEY`
-- **PyRIT scorer LLM**
-  - `PYRIT_SCORER_ENDPOINT`
-  - `PYRIT_SCORER_MODEL`
-  - `PYRIT_SCORER_API_KEY`
-- **PyRIT runtime**
-  - `PYRIT_DB_PATH` (default: `pyrit.db`)
-- **Reports**
-  - `JSON_REPORTS_DIR` (default: `reports`)
-- **Garak**
-  - `GARAK_REPORTS_DIR`
-  - `GARAK_CONFIG_PATH`
-
-See `.env.example` for comments and defaults.
-
-### Dynamic API key resolution (enterprise)
-
-If your environment requires refreshing API tokens at runtime (e.g., JWT via an
-identity provider), set the `*_API_KEY_COMMAND` variables instead of — or in
-addition to — the static `*_API_KEY` ones:
+For PyRIT campaigns, fill at least:
 
 ```dotenv
-PYRIT_ATTACKER_API_KEY_COMMAND="python scripts/get_token.py"
-PYRIT_SCORER_API_KEY_COMMAND="python scripts/get_token.py"
+PYRIT_ATTACKER_ENDPOINT=...
+PYRIT_ATTACKER_MODEL=...
+PYRIT_ATTACKER_API_KEY=...
+PYRIT_SCORER_ENDPOINT=...
+PYRIT_SCORER_MODEL=...
+PYRIT_SCORER_API_KEY=...
 ```
 
-When a `*_COMMAND` variable is set, the framework executes the command and uses
-its stdout as the API key, ignoring the static value.
-
----
-
-## 5. Quick start
-
-Run an example campaign:
+### 4. Run a campaign
 
 ```zsh
-python main.py examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml
+redteaming run examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml
+```
+
+Repository entrypoint:
+
+```zsh
+python main.py run examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml
+```
+
+## CLI
+
+```text
+redteaming run <campaign.yaml>
+redteaming validate <campaign.yaml>
+redteaming doctor <campaign.yaml>
+redteaming dashboard
 ```
 
 Useful variants:
 
 ```zsh
-python main.py examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml --log-level DEBUG
-python main.py examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml --skip-checks
-python main.py examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml --no-dashboard
+redteaming run examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml --log-level DEBUG
+redteaming run examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml --skip-checks
+redteaming run examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml --no-dashboard
+redteaming validate examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml
+redteaming doctor examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml
+redteaming dashboard
 ```
 
-To launch the dashboard independently on existing reports:
+## Campaign model
 
-```zsh
-streamlit run src/core/results/report_viewer.py
-```
+A campaign YAML defines:
 
-By default, after a campaign run:
-
-- reports are written to `reports/`
-- the Streamlit dashboard is launched automatically unless `--no-dashboard` is used
-
----
-
-## 6. Campaign format
-
-A campaign defines:
-
-- metadata
 - one target
-- an ordered list of attacks
+- an ordered list of attack YAML files
+- optional campaign metadata
 
-Use `examples/templates/campaign.yaml` as the reference template.
+Reference templates live in:
 
-### Campaign skeleton
+- `examples/templates/campaign.yaml`
+- `examples/templates/attack_pyrit_dataset.yaml`
+- `examples/templates/attack_pyrit_crescendo.yaml`
+- `examples/templates/attack_pyrit_red_teaming.yaml`
+- `examples/templates/attack_garak.yaml`
 
-```yaml
-campaign:
-  name: "My campaign"
-  description: "What this campaign is testing"
+## Target contract summary
 
-target:
-  name: "CustomerBot"
-  model: "gpt-4.1-nano"
-  architecture_type: "System Prompt + Context Injected"
-  chat_url: "http://localhost:8000/api/chat"
-  reset_memory_url: "http://localhost:8000/api/reset"
-  input_field: "prompt"
-  output_field: "response"
+Targets are currently modeled as HTTP JSON chat endpoints.
 
-attacks:
-  - examples/attacks/R1-prompt-leakage/r1_pyrit_direct_request.yaml
-  - examples/attacks/R3-jailbreaking-guardrail-bypass/r3_pyrit_fictional_world.yaml
+The framework sends:
+
+```json
+{
+  "<input_field>": "<prompt>"
+}
 ```
 
-### Target fields
+and expects:
 
-- `name`: human-readable target name
-- `model`: model name shown in logs and dashboard
-- `architecture_type`: target architecture category shown in logs and dashboard
-- `chat_url`: endpoint that receives the input message
-- `reset_memory_url`: optional endpoint used to reset target memory/context
-- `input_field`: JSON field used to send the prompt to the target
-- `output_field`: JSON field read from the target response
+```json
+{
+  "<output_field>": "<response>"
+}
+```
 
-### Attack paths
+Supported target features today:
 
-Each item in `attacks:` is a path to an attack YAML file.
+- HTTP POST chat endpoint
+- configurable input field
+- configurable output field
+- optional reset endpoint
+- optional metadata (`model`, `architecture_type`)
 
-Paths are expected relative to the **project root**.
+See `docs/target-contract.md` for the full target contract.
 
-### Attack templates
+## Architecture at a glance
 
-See `examples/templates/` for editable attack skeletons:
+Current high-level structure:
 
-- `attack_pyrit_dataset.yaml` — single-shot prompt list
-- `attack_pyrit_crescendo.yaml` — multi-turn crescendo
-- `attack_pyrit_red_teaming.yaml` — objective-driven red teaming
-- `attack_garak.yaml` — Garak probe
+```text
+src/redteaming/
+├── application/      # campaign loading, orchestration, health checks
+├── domain/           # models and contracts
+├── infrastructure/   # config, HTTP target, persistence
+├── plugins/          # pyrit and garak integrations
+└── ui/               # streamlit dashboard
+```
 
----
+Execution flow:
 
-## 7. Supported attack modes
+```text
+campaign YAML
+→ target + attack definitions
+→ plugin runner execution (PyRIT / Garak)
+→ normalized AttackResult objects
+→ JSON reports in reports/
+→ dashboard analysis
+```
 
-### PyRIT dataset
+## Reports
 
-- executes a list of prompts
-- treats prompts as independent objectives
-- resets target memory between each prompt when `reset_memory_url` is configured
+Normalized reports are written to:
 
-### PyRIT crescendo
+```text
+reports/
+```
 
-- multi-turn attack
-- keeps conversational context across turns
-- does **not** reset between turns
+The report model is documented in:
 
-### PyRIT red teaming
+- `docs/report-model.md`
 
-- multi-turn objective-driven adversarial interaction
-- uses attacker and scorer LLMs
+The dashboard reads those normalized JSON files.
 
-### Garak
+## Development
 
-- probe-based scanning
-- uses the configured REST generator against the target HTTP API
-
----
-
-## 8. Outputs
-
-The framework stores normalized JSON results in `reports/`.
-
-Those reports are used by the dashboard and include metadata such as:
-
-- framework
-- attack name
-- campaign name
-- target URL
-- target model
-- target architecture type
-- timestamp
-
-Depending on the framework, a result contains either:
-
-- `prompts` for Garak-style probe results
-- `conversation` for PyRIT conversation-style results
-
----
-
-## 9. Dashboard
-
-The dashboard is implemented in:
-
-- `src/core/results/report_viewer.py`
-
-It provides three main views:
-
-- **Overview**
-- **Campaigns**
-- **Attacks**
-
-The dashboard shows campaign-level information such as:
-
-- campaign name
-- breach rate
-- target model
-- target architecture type
-
----
-
-## 10. Testing
-
-Run the test suite with:
+Run the full test suite:
 
 ```zsh
-pytest
+pytest -q
 ```
 
-Or run a subset, for example:
+Examples:
 
 ```zsh
-pytest tests/frameworks/test_pyrit_runner.py
-pytest tests/application/test_campaign_loader.py
+pytest tests/frameworks/test_pyrit_runner.py -q
+pytest tests/frameworks/test_garak_runner.py -q
 ```
 
----
+## Limitations
 
-## 11. Current assumptions and limitations
+Current assumptions and constraints:
 
-- targets are currently modeled as HTTP chat endpoints
-- the framework expects text input/output fields in JSON
-- campaign attack paths are root-relative
-- the dashboard reads normalized JSON reports, not live campaign YAML files
-- PyRIT and Garak have different execution models, but both are normalized into the same reporting layer
+- targets are HTTP/JSON chat endpoints only
+- target request/response semantics are simple field-based JSON
+- framework-specific dependencies must be installed separately
+- PyRIT and Garak execution models differ, but are normalized into one reporting layer
+- reports are always written to `reports/`
+- the Garak runtime config is internal and generated automatically under `.runtime/`
 
----
+## Repository map
 
-## 12. Where to extend the project
+Top-level directories worth reading first:
 
-- add new example campaigns under `examples/campaigns/`
-- add new attacks under `examples/attacks/`
-- add framework logic under `src/frameworks/`
-- add orchestration or reporting logic under `src/core/`
-- add regression tests under `tests/`
+- `src/redteaming/`
+- `examples/`
+- `docs/`
+- `schemas/`
+- `tests/`
 
----
+## Documentation
 
-## 13. Recommended reading order for a new contributor
+For deeper detail, use:
 
-If you are new to the repo, start with:
-
-1. `README.md`
-2. `main.py`
-3. `examples/templates/campaign.yaml`
-4. `src/core/application/campaign_loader.py`
-5. `src/frameworks/pyrit/pyrit_runner.py`
-6. `src/frameworks/garak/garak_runner.py`
-
-That gives a good end-to-end view of how campaigns are loaded, executed, normalized, and reported.
+- `docs/architecture.md`
+- `docs/campaign-spec.md`
+- `docs/target-contract.md`
+- `docs/report-model.md`
+- `docs/plugin-development.md`

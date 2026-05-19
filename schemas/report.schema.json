@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://redteaming-framework.local/schemas/report.schema.json",
+  "title": "RedTeaming Normalized Report",
+  "type": "object",
+  "required": [
+    "framework",
+    "attack_name",
+    "target_url",
+    "campaign_name",
+    "campaign_run_id",
+    "campaign_run_timestamp",
+    "target_model",
+    "target_architecture_type",
+    "timestamp",
+    "prompts",
+    "conversation"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "framework": {
+      "type": "string",
+      "enum": ["pyrit", "garak", "dummy"]
+    },
+    "attack_name": { "type": "string", "minLength": 1 },
+    "target_url": { "type": "string", "pattern": "^https?://" },
+    "campaign_name": { "type": "string" },
+    "campaign_run_id": { "type": "string" },
+    "campaign_run_timestamp": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "target_model": { "type": "string" },
+    "target_architecture_type": { "type": "string" },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "prompts": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "required": ["prompt", "response", "passed", "score", "rationale", "detector"],
+        "additionalProperties": false,
+        "properties": {
+          "prompt": { "type": "string" },
+          "response": { "type": "string" },
+          "passed": { "type": "boolean" },
+          "score": { "type": ["number", "null"] },
+          "rationale": { "type": ["string", "null"] },
+          "detector": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "conversation": {
+      "type": ["object", "null"],
+      "required": ["conversation_id", "objective", "achieved", "turns"],
+      "additionalProperties": false,
+      "properties": {
+        "conversation_id": { "type": "string" },
+        "objective": { "type": "string" },
+        "achieved": { "type": "boolean" },
+        "turns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["turn", "prompt", "response", "score", "rationale"],
+            "additionalProperties": false,
+            "properties": {
+              "turn": { "type": "integer" },
+              "prompt": { "type": "string" },
+              "response": { "type": "string" },
+              "score": { "type": "boolean" },
+              "rationale": { "type": ["string", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+

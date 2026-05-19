@@ -1,1 +1,1 @@
-# Tests for frameworks — path setup handled by root conftest.py
+# Tests for framework integrations.

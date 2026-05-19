@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://redteaming-framework.local/schemas/campaign.schema.json",
+  "title": "RedTeaming Campaign",
+  "type": "object",
+  "required": ["target", "attacks"],
+  "additionalProperties": false,
+  "properties": {
+    "campaign": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "target": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "chat_url": {
+          "type": "string",
+          "pattern": "^https?://"
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^https?://"
+        },
+        "reset_memory_url": {
+          "type": "string",
+          "pattern": "^https?://"
+        },
+        "model": { "type": "string" },
+        "architecture_type": { "type": "string" },
+        "input_field": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[^{}:\\\\]+$",
+          "not": { "pattern": "\\$INPUT" }
+        },
+        "output_field": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "anyOf": [
+        { "required": ["chat_url"] },
+        { "required": ["url"] }
+      ],
+      "additionalProperties": true
+    },
+    "attacks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    }
+  }
+}
+

@@ -3,10 +3,10 @@ import unittest
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
-from core.models.attack import Attack
-from core.models.attack_target import AttackTarget
-from frameworks.pyrit.pyrit_adapter import PyritAdapter
-from frameworks.pyrit.pyrit_runner import PyritRunner
+from redteaming.domain.models.attack import Attack
+from redteaming.infrastructure.http_attack_target import AttackTarget
+from redteaming.plugins.pyrit.adapter import PyritAdapter
+from redteaming.plugins.pyrit.runner import PyritRunner
 
 
 class DummyTarget(AttackTarget):
@@ -32,14 +32,13 @@ class DummyAttack(Attack):
 class PyritRunnerTests(unittest.TestCase):
     def setUp(self):
         self.settings_patcher = patch(
-            "frameworks.pyrit.pyrit_runner.get_runtime_settings",
+            "redteaming.plugins.pyrit.runner.get_runtime_settings",
             return_value=type(
                 "Settings",
                 (),
                 {
                     "pyrit_loop_shutdown_delay": 0,
                     "pyrit_dataset_max_concurrency": 5,
-                    "pyrit_db_path": "/tmp/pyrit.db",
                 },
             )(),
         )
@@ -95,7 +94,7 @@ class PyritRunnerTests(unittest.TestCase):
             with patch.object(runner, "_build_scorer_llm", return_value=object()), \
                  patch.object(runner, "_build_scorer", return_value="scorer") as scorer_mock, \
                  patch.object(runner, "_run_dataset", new_callable=AsyncMock, return_value=["dataset-result"]) as dataset_mock, \
-                 patch("frameworks.pyrit.pyrit_runner.build_pyrit_scorer_config", return_value={"scorer_endpoint": "e", "scorer_model": "m", "scorer_api_key": "k"}):
+                 patch("redteaming.plugins.pyrit.runner.build_pyrit_scorer_config", return_value={"scorer_endpoint": "e", "scorer_model": "m", "scorer_api_key": "k"}):
                 result = await runner._execute_orchestrator(attack, object(), {"attacker_endpoint": "e", "attacker_model": "m", "attacker_api_key": "k"})
 
             self.assertEqual(result, ["dataset-result"])
@@ -112,7 +111,7 @@ class PyritRunnerTests(unittest.TestCase):
             with patch.object(runner, "_build_attacker_llm", return_value=object()), \
                  patch.object(runner, "_build_scorer_llm", return_value=object()), \
                  patch.object(runner, "_build_scorer", return_value="scorer"), \
-                 patch("frameworks.pyrit.pyrit_runner.build_pyrit_scorer_config", return_value={"scorer_endpoint": "e", "scorer_model": "m", "scorer_api_key": "k"}):
+                 patch("redteaming.plugins.pyrit.runner.build_pyrit_scorer_config", return_value={"scorer_endpoint": "e", "scorer_model": "m", "scorer_api_key": "k"}):
                 with self.assertRaisesRegex(ValueError, "Unknown orchestrator type"):
                     await runner._execute_orchestrator(
                         attack,
@@ -147,8 +146,8 @@ class PyritRunnerTests(unittest.TestCase):
                 return SimpleNamespace(objective=objective)
 
         async def run_test():
-            with patch("frameworks.pyrit.pyrit_runner.AttackScoringConfig", return_value=object()), \
-                 patch("frameworks.pyrit.pyrit_runner.PromptSendingAttack", FakePromptSendingAttack):
+            with patch("redteaming.plugins.pyrit.runner.AttackScoringConfig", return_value=object()), \
+                 patch("redteaming.plugins.pyrit.runner.PromptSendingAttack", FakePromptSendingAttack):
                 results = await runner._run_dataset(attack, objective_target, scorer="scorer")
 
             self.assertEqual([result.objective for result in results], ["one", "two"])

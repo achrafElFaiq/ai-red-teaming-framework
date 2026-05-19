@@ -18,14 +18,19 @@ env/
 # Pytest cache
 .pytest_cache/
 
+# Python packaging artifacts
+*.egg-info/
+build/
+dist/
+
 # Local test artifacts
 test.json
 
 # Generated reports (runtime output)
 reports/
 
-# Generated Garak config (auto-generated before each run)
-config/garak_config.json
+# Generated runtime files
+.runtime/
 
 # PyRIT database
 *.db
@@ -46,4 +51,3 @@ use_cases/
 orange_use_cases/
 
 strategy.md
-AUDIT.md

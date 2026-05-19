@@ -6,10 +6,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from core.models.attack import Attack
-from core.models.attack_result import AttackResult
-from core.models.attack_target import AttackTarget
-from frameworks.garak.garak_runner import GarakRunner
+from redteaming.domain.models.attack import Attack
+from redteaming.domain.models.attack_result import AttackResult
+from redteaming.infrastructure.http_attack_target import AttackTarget
+from redteaming.plugins.garak.runner import GarakRunner
 
 
 class DummyTarget(AttackTarget):
@@ -39,10 +39,10 @@ class DummyAttack(Attack):
 class GarakRunnerTests(unittest.TestCase):
     def setUp(self):
         self.settings_patcher = patch(
-            "frameworks.garak.garak_runner.get_runtime_settings",
+            "redteaming.plugins.garak.runner.get_runtime_settings",
             return_value=SimpleNamespace(
                 garak_reports_dir="/tmp/garak",
-                garak_config_path="config/garak_config.json",
+                garak_config_path=".runtime/garak/garak_config.json",
                 garak_request_timeout=60,
                 garak_default_report_prefix="reports/run",
             ),
@@ -68,8 +68,8 @@ class GarakRunnerTests(unittest.TestCase):
             report_path = runner.garak_reports_dir / "custom_run.report.jsonl"
             report_path.write_text('{"dummy": true}\n', encoding="utf-8")
 
-            with patch("frameworks.garak.garak_runner.subprocess.run", return_value=SimpleNamespace(returncode=0)) as run_mock, patch(
-                "frameworks.garak.garak_runner.GarakNormalizer"
+            with patch("redteaming.plugins.garak.runner.subprocess.run", return_value=SimpleNamespace(returncode=0)) as run_mock, patch(
+                "redteaming.plugins.garak.runner.GarakNormalizer"
             ) as normalizer_cls:
                 normalizer_cls.return_value.normalize.return_value = expected_result
 
@@ -94,7 +94,7 @@ class GarakRunnerTests(unittest.TestCase):
             runner.garak_reports_dir = Path(tmp_dir)
             runner.config_path = Path(tmp_dir) / "garak_config.json"
 
-            with patch("frameworks.garak.garak_runner.subprocess.run", return_value=SimpleNamespace(returncode=7)):
+            with patch("redteaming.plugins.garak.runner.subprocess.run", return_value=SimpleNamespace(returncode=7)):
                 with self.assertRaisesRegex(RuntimeError, "return code 7"):
                     runner.run(target, attack)
 
@@ -107,7 +107,7 @@ class GarakRunnerTests(unittest.TestCase):
             runner.garak_reports_dir = Path(tmp_dir)
             runner.config_path = Path(tmp_dir) / "garak_config.json"
 
-            with patch("frameworks.garak.garak_runner.subprocess.run", return_value=SimpleNamespace(returncode=0)):
+            with patch("redteaming.plugins.garak.runner.subprocess.run", return_value=SimpleNamespace(returncode=0)):
                 with self.assertRaisesRegex(FileNotFoundError, "missing.report.jsonl"):
                     runner.run(target, attack)
 
