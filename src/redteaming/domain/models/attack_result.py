@@ -44,7 +44,4 @@ class AttackResult(BaseModel):
     prompts: Optional[list[PromptResult]] = None
     conversation: Optional[Conversation] = None
 
-    def save(self, path: str):
-        with open(path, "w") as f:
-            f.write(self.model_dump_json(indent=2))
 

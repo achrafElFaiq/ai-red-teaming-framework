@@ -8,7 +8,6 @@ __pycache__/
 venv/
 ENV/
 env/
-.venv313/
 
 # Editor files
 .DS_Store
@@ -35,8 +34,6 @@ reports/
 # PyRIT database
 *.db
 
-# Internal scripts (enterprise auth — not published)
-scripts/
 
 # Campaigns & attack catalog (contain confidential attack data)
 campaigns/

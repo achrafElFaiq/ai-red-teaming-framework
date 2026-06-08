@@ -41,10 +41,12 @@ class GarakRunnerTests(unittest.TestCase):
         self.settings_patcher = patch(
             "redteaming.plugins.garak.runner.get_runtime_settings",
             return_value=SimpleNamespace(
-                garak_reports_dir="/tmp/garak",
-                garak_config_path=".runtime/garak/garak_config.json",
-                garak_request_timeout=60,
-                garak_default_report_prefix="reports/run",
+                garak=SimpleNamespace(
+                    garak_reports_dir="/tmp/garak",
+                    garak_config_path=".runtime/garak/garak_config.json",
+                    garak_request_timeout=60,
+                    garak_default_report_prefix="reports/run",
+                ),
             ),
         )
         self.settings_patcher.start()
@@ -127,7 +129,7 @@ class GarakRunnerTests(unittest.TestCase):
         self.assertEqual(generator["req_template"], '{"prompt": "$INPUT"}')
         self.assertTrue(generator["response_json"])
         self.assertEqual(generator["response_json_field"], "response")
-        self.assertEqual(generator["request_timeout"], runner.settings.garak_request_timeout)
+        self.assertEqual(generator["request_timeout"], runner.settings.garak.garak_request_timeout)
         self.assertEqual(generator["headers"], {"Content-Type": "application/json"})
 
     def test_write_generator_config_supports_custom_payload_fields(self):

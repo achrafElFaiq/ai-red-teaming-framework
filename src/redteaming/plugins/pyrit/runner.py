@@ -16,7 +16,7 @@ from pyrit.memory.sqlite_memory import SQLiteMemory
 from pyrit.prompt_target.openai.openai_chat_target import OpenAIChatTarget
 from pyrit.score.true_false.self_ask_true_false_scorer import SelfAskTrueFalseScorer
 
-from settings import build_pyrit_attacker_config, build_pyrit_scorer_config, get_runtime_settings
+from redteaming.settings import build_pyrit_attacker_config, build_pyrit_scorer_config, get_runtime_settings
 from redteaming.domain.contracts.runner import Runner
 from redteaming.domain.models.attack import Attack
 from redteaming.domain.models.attack_result import AttackResult
@@ -75,7 +75,7 @@ class PyritRunner(Runner):
             scorer = self._build_scorer(scorer_llm, attack)
             prompts = attack.config.get("prompts", [])
             logger.info("[PyRIT] Dataset mode — %d prompt(s), max_concurrency=%d",
-                        len(prompts), self.settings.pyrit_dataset_max_concurrency)
+                        len(prompts), self.settings.pyrit.dataset_max_concurrency)
             return await self._run_dataset(attack, objective_target, scorer)
 
         attacker_llm = self._build_attacker_llm(attacker_config)
@@ -243,8 +243,8 @@ class PyritRunner(Runner):
     def _shutdown_event_loop(self, loop: asyncio.AbstractEventLoop) -> None:
         gc.collect()
 
-        if self.settings.pyrit_loop_shutdown_delay > 0:
-            loop.run_until_complete(asyncio.sleep(self.settings.pyrit_loop_shutdown_delay))
+        if self.settings.pyrit.loop_shutdown_delay > 0:
+            loop.run_until_complete(asyncio.sleep(self.settings.pyrit.loop_shutdown_delay))
 
         pending_tasks = [task for task in asyncio.all_tasks(loop) if not task.done()]
         if pending_tasks:

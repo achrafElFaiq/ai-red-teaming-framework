@@ -1,4 +1,5 @@
 from pathlib import Path
+from types import SimpleNamespace
 
 import os
 
@@ -11,7 +12,7 @@ def ensure_env_loaded() -> None:
     """Load the root .env file once."""
     global _env_loaded
     if not _env_loaded:
-        load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+        load_dotenv(Path(__file__).resolve().parents[3] / ".env")
         _env_loaded = True
 
 
@@ -20,51 +21,52 @@ from .garak import load_garak_settings
 from .pyrit import PyritSettings, build_attacker_config, build_scorer_config, load_pyrit_settings
 from .reports import ReportsSettings
 from .reports import load_reports_settings
-from .runtime import RuntimeSettings
 
 
-def get_runtime_settings(frameworks: set[str] | None = None) -> RuntimeSettings:
-    """Read runtime settings from environment variables."""
+def get_runtime_settings(frameworks: set[str] | None = None) -> SimpleNamespace:
+    """Read runtime settings from environment variables.
+
+    Returns a SimpleNamespace with .reports, .pyrit, .garak attributes.
+    """
     ensure_env_loaded()
 
     need_pyrit = frameworks is None or "pyrit" in frameworks
-    need_garak = frameworks is None or "garak" in frameworks
 
-    settings = RuntimeSettings(
-        reports=load_reports_settings(),
-        pyrit=load_pyrit_settings(),
-        garak=load_garak_settings(),
-    )
+    reports = load_reports_settings()
+    pyrit = load_pyrit_settings()
+    garak = load_garak_settings()
 
     if need_pyrit:
-        if not settings.pyrit.attacker_endpoint:
+        if not pyrit.attacker_endpoint:
             raise ValueError("Missing required environment variable: PYRIT_ATTACKER_ENDPOINT")
-        if not settings.pyrit.attacker_model:
+        if not pyrit.attacker_model:
             raise ValueError("Missing required environment variable: PYRIT_ATTACKER_MODEL")
-        if not settings.pyrit.attacker_api_key and not os.getenv("PYRIT_ATTACKER_API_KEY_COMMAND"):
+        if not pyrit.attacker_api_key and not os.getenv("PYRIT_ATTACKER_API_KEY_COMMAND"):
             raise ValueError(
                 "Missing required environment variable: PYRIT_ATTACKER_API_KEY or PYRIT_ATTACKER_API_KEY_COMMAND")
-        if not settings.pyrit.scorer_endpoint:
+        if not pyrit.scorer_endpoint:
             raise ValueError("Missing required environment variable: PYRIT_SCORER_ENDPOINT")
-        if not settings.pyrit.scorer_model:
+        if not pyrit.scorer_model:
             raise ValueError("Missing required environment variable: PYRIT_SCORER_MODEL")
-        if not settings.pyrit.scorer_api_key and not os.getenv("PYRIT_SCORER_API_KEY_COMMAND"):
+        if not pyrit.scorer_api_key and not os.getenv("PYRIT_SCORER_API_KEY_COMMAND"):
             raise ValueError(
                 "Missing required environment variable: PYRIT_SCORER_API_KEY or PYRIT_SCORER_API_KEY_COMMAND")
 
-    return settings
+    return SimpleNamespace(reports=reports, pyrit=pyrit, garak=garak)
 
 
 def get_reports_settings() -> ReportsSettings:
-    return get_runtime_settings(frameworks=set()).reports
+    return load_reports_settings()
 
 
 def get_pyrit_settings() -> PyritSettings:
-    return get_runtime_settings(frameworks={"pyrit"}).pyrit
+    ensure_env_loaded()
+    return load_pyrit_settings()
 
 
 def get_garak_settings() -> GarakSettings:
-    return get_runtime_settings(frameworks={"garak"}).garak
+    ensure_env_loaded()
+    return load_garak_settings()
 
 
 def build_pyrit_attacker_config() -> dict[str, str]:
@@ -78,7 +80,6 @@ __all__ = [
     "ReportsSettings",
     "PyritSettings",
     "GarakSettings",
-    "RuntimeSettings",
     "ensure_env_loaded",
     "get_runtime_settings",
     "get_reports_settings",
@@ -87,7 +88,3 @@ __all__ = [
     "build_pyrit_attacker_config",
     "build_pyrit_scorer_config",
 ]
-
-
-
-

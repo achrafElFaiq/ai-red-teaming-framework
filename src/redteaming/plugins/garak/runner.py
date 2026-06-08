@@ -4,7 +4,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from settings import get_runtime_settings
+from redteaming.settings import get_runtime_settings
 from redteaming.domain.contracts.runner import Runner
 from redteaming.domain.models.attack import Attack
 from redteaming.domain.models.attack_result import AttackResult
@@ -22,8 +22,8 @@ class GarakRunner(Runner):
 
     def __init__(self):
         self.settings = get_runtime_settings(frameworks={"garak"})
-        self.garak_reports_dir = Path(self.settings.garak_reports_dir)
-        self.config_path = Path(self.settings.garak_config_path)
+        self.garak_reports_dir = Path(self.settings.garak.garak_reports_dir)
+        self.config_path = Path(self.settings.garak.garak_config_path)
 
     def run(self, target: AttackTarget, attack: Attack) -> list[AttackResult]:
         probe = attack.config.get("probe", "?")
@@ -53,7 +53,7 @@ class GarakRunner(Runner):
                             "req_template": req_template,
                             "response_json": True,
                             "response_json_field": output_field,
-                            "request_timeout": self.settings.garak_request_timeout,
+                            "request_timeout": self.settings.garak.garak_request_timeout,
                             "headers": {
                                 "Content-Type": "application/json"
                             }
@@ -70,7 +70,7 @@ class GarakRunner(Runner):
         self.garak_reports_dir.mkdir(parents=True, exist_ok=True)
 
     def _resolve_report_prefix(self, attack: Attack) -> str:
-        return attack.config.get("report_prefix", self.settings.garak_default_report_prefix)
+        return attack.config.get("report_prefix", self.settings.garak.garak_default_report_prefix)
 
     def _build_garak_command(self, target: AttackTarget, attack: Attack, report_prefix: str) -> list[str]:
         return [

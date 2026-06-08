@@ -1,6 +1,8 @@
 """Pre-flight health checks for campaign components."""
 
 import logging
+import subprocess
+import sys
 
 import requests
 
@@ -19,10 +21,12 @@ def run_preflight_checks(config: CampaignConfig) -> list[str]:
     issues.extend(_check_target(config.target_chat_url, config.target_input_field))
 
     if "pyrit" in frameworks:
-        from settings import get_runtime_settings
+        from redteaming.settings import get_runtime_settings, build_pyrit_attacker_config, build_pyrit_scorer_config
         settings = get_runtime_settings(frameworks={"pyrit"})
-        issues.extend(_check_llm_endpoint("Attacker LLM", settings.pyrit_attacker_endpoint, settings.pyrit_attacker_api_key))
-        issues.extend(_check_llm_endpoint("Scorer LLM", settings.pyrit_scorer_endpoint, settings.pyrit_scorer_api_key))
+        attacker_config = build_pyrit_attacker_config()
+        scorer_config = build_pyrit_scorer_config()
+        issues.extend(_check_llm_endpoint("Attacker LLM", settings.pyrit.attacker_endpoint, attacker_config["attacker_api_key"]))
+        issues.extend(_check_llm_endpoint("Scorer LLM", settings.pyrit.scorer_endpoint, scorer_config["scorer_api_key"]))
 
     if "garak" in frameworks:
         issues.extend(_check_garak_available())
@@ -60,9 +64,7 @@ def _check_target(target_url: str, input_field: str) -> list[str]:
 def _check_llm_endpoint(name: str, endpoint: str, api_key: str) -> list[str]:
     logger.info("[Preflight] Checking %s: %s", name, endpoint)
     models_url = endpoint.rstrip("/")
-    if models_url.endswith("/v1"):
-        models_url += "/models"
-    elif not models_url.endswith("/models"):
+    if not models_url.endswith("/models"):
         models_url += "/models"
 
     headers = {}
@@ -81,19 +83,19 @@ def _check_llm_endpoint(name: str, endpoint: str, api_key: str) -> list[str]:
         return [f"{name} at {endpoint} timed out"]
     except requests.RequestException as exc:
         return [f"{name} at {endpoint} check failed: {exc}"]
+
+
 def _check_garak_available() -> list[str]:
     logger.info("[Preflight] Checking Garak availability")
-    import subprocess
-    import sys
+
     result = subprocess.run(
         [sys.executable, "-m", "garak", "--help"],
         capture_output=True,
         text=True,
         timeout=15,
     )
+
     if result.returncode == 0:
         logger.info("[Preflight] ✅ Garak is installed and available")
         return []
     return ["Garak is not installed or not available. Install with: pip install garak"]
-
-

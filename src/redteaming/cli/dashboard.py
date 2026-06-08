@@ -6,7 +6,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from redteaming.cli.common import configure_logging, get_cli_logger
+from redteaming.cli.log import configure_logging, get_cli_logger
 
 DASHBOARD_PATH = Path(__file__).resolve().parents[1] / "ui" / "streamlit_dashboard.py"
 

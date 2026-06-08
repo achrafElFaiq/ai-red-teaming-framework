@@ -33,14 +33,12 @@ class PyritRunnerTests(unittest.TestCase):
     def setUp(self):
         self.settings_patcher = patch(
             "redteaming.plugins.pyrit.runner.get_runtime_settings",
-            return_value=type(
-                "Settings",
-                (),
-                {
-                    "pyrit_loop_shutdown_delay": 0,
-                    "pyrit_dataset_max_concurrency": 5,
-                },
-            )(),
+            return_value=SimpleNamespace(
+                pyrit=SimpleNamespace(
+                    loop_shutdown_delay=0,
+                    dataset_max_concurrency=5,
+                ),
+            ),
         )
         self.settings_patcher.start()
 

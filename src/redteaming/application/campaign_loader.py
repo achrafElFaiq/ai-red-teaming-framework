@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 _REQUIRED_TOP_KEYS = {"target", "attacks"}
 _VALID_TOP_KEYS = {"campaign", "target", "attacks"}
 
+
+
 def load_campaign(yaml_path: str | Path) -> CampaignConfig:
     path = Path(yaml_path)
     if not path.exists():
@@ -45,6 +47,7 @@ def load_campaign(yaml_path: str | Path) -> CampaignConfig:
         target_output_field=target_cfg["output_field"],
         active_attacks=attacks,
     )
+
 
 
 def load_attack(yaml_path: str | Path) -> Attack:

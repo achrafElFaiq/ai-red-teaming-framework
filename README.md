@@ -11,7 +11,7 @@ This repository provides:
 - `Garak` probe-based attacks
 - normalized JSON reports written to `reports/`
 - a Streamlit dashboard for report exploration
-- CLI commands for run / validate / doctor / dashboard
+- CLI commands: `run` and `dashboard`
 
 ## Supported frameworks
 
@@ -20,30 +20,18 @@ This repository provides:
 
 ## Quickstart
 
-### 1. Create a virtual environment
+### 1. Install `uv` (if not already installed)
 
 ```zsh
-python3 -m venv .venv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### 2. Create the virtual environment and install
+
+```zsh
+uv venv .venv --python 3.13
 source .venv/bin/activate
-```
-
-### 2. Install the package
-
-```zsh
-pip install -e .
-```
-
-For test tooling:
-
-```zsh
-pip install -e '.[dev]'
-```
-
-Framework runtimes are installed separately when needed:
-
-```zsh
-pip install pyrit
-pip install garak
+uv pip install -e ".[dev]"
 ```
 
 ### 3. Copy the environment template
@@ -79,19 +67,15 @@ python main.py run examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml
 
 ```text
 redteaming run <campaign.yaml>
-redteaming validate <campaign.yaml>
-redteaming doctor <campaign.yaml>
 redteaming dashboard
 ```
 
 Useful variants:
 
 ```zsh
-redteaming run examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml --log-level DEBUG
-redteaming run examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml --skip-checks
-redteaming run examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml --no-dashboard
-redteaming validate examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml
-redteaming doctor examples/campaigns/R1-prompt-leakage/prompt_leakage.yaml
+redteaming run campaigns/my_campaign.yaml --log-level DEBUG
+redteaming run campaigns/my_campaign.yaml --skip-checks
+redteaming run campaigns/my_campaign.yaml --no-dashboard
 redteaming dashboard
 ```
 

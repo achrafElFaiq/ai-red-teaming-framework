@@ -6,7 +6,7 @@ import json
 from redteaming.application.campaign_loader import load_campaign
 from redteaming.application.health_check import run_preflight_checks
 from redteaming.application.orchestrator import AttackOrchestrator
-from redteaming.cli.common import configure_logging, get_cli_logger
+from redteaming.cli.log import configure_logging, get_cli_logger
 from redteaming.cli.dashboard import launch_dashboard
 from redteaming.infrastructure.http_attack_target import AttackTarget
 

@@ -15,7 +15,7 @@ class JsonReportStoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             with patch(
                     "redteaming.infrastructure.persistence.json_report_store.get_runtime_settings",
-                return_value=SimpleNamespace(json_reports_dir=tmp_dir),
+                return_value=SimpleNamespace(reports=SimpleNamespace(json_reports_dir=tmp_dir)),
             ):
                 store = JsonReportStore()
 

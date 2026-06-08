@@ -16,7 +16,7 @@ from pathlib import Path
 import streamlit as st
 
 
-from settings import get_runtime_settings
+from redteaming.settings import get_runtime_settings
 from redteaming.infrastructure.persistence.json_report_store import JsonReportStore
 
 st.set_page_config(
@@ -655,7 +655,7 @@ def _render_probes(report: dict):
 
 def main():
     _actual_root = Path(__file__).resolve().parents[3]
-    reports_path = (_actual_root / get_runtime_settings(frameworks=set()).json_reports_dir).resolve()
+    reports_path = (_actual_root / get_runtime_settings(frameworks=set()).reports.json_reports_dir).resolve()
 
     if not reports_path.exists() or not any(reports_path.glob("*.json")):
         st.markdown(
